@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --site-font: 'Inter', Calibri, Arial, sans-serif;
+  --site-text-size: 16px;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  @apply text-slate-900 antialiased min-h-screen relative;
+  font-family: var(--site-font, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Roboto, sans-serif);
+  font-size: var(--site-text-size, 16px);
+  overflow-x: hidden;
+  touch-action: pan-y;
+  background-color: #f3f6fc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(0, 122, 255, 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(88, 86, 214, 0.15) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(175, 82, 222, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(0, 122, 255, 0.1) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(52, 199, 89, 0.08) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* UI Card & Glass Utilities */
+.ios-glass {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.ios-glass-dark {
+  background: #0f172a;
+  border: 1px solid #334155;
+}
+
+.ios-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+}
+
+.ios-card-interactive {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.ios-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -8px rgba(0, 122, 255, 0.2), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
+  border-color: #007AFF;
+}
+
+/* Tactile Button Feedback & Micro-Animations */
+button {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+/* Fix dropdown option visibility across all OS and browsers */
+select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+  padding: 8px !important;
+}
+
+/* iOS 15 Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(142, 142, 147, 0.35);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 142, 147, 0.6);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Ensure global site font preference dynamically applies to all website elements */
+body, #root, #root *, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6, span, a, label {
+  font-family: var(--site-font, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Roboto, 'Inter', sans-serif);
+}
+
+/* Entry Body font override system */
+.entry-body-content,
+.entry-body-content * {
+  font-family: var(--entry-body-font, var(--site-font, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif)) !important;
+}
+
+/* ContentEditable typography & list formatting */
+[contenteditable] ul {
+  list-style-type: disc !important;
+  padding-left: 1.25rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+[contenteditable] ol {
+  list-style-type: decimal !important;
+  padding-left: 1.25rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+  display: block;
+}
+
+[contenteditable] li {
+  margin-bottom: 0.25rem !important;
+}
+
+::selection {
+  background-color: #F59E0B;
+  color: #FFFFFF;
+}
+
+:focus-visible {
+  outline: 2px solid theme('colors.sage');
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
