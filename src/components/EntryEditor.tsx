@@ -300,9 +300,9 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
           handleSave()
         }
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6 backdrop-blur-md transition-opacity"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 sm:p-6 backdrop-blur-md transition-opacity pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <div className="flex h-[96vh] sm:h-[92vh] w-full max-w-5xl flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden text-slate-900">
+      <div className="flex h-[100dvh] sm:h-[92vh] max-h-[100dvh] w-full max-w-5xl flex-col rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 bg-white shadow-2xl overflow-hidden text-slate-900">
         {/* Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-5 sm:px-8 py-4 sm:py-5">
           <div className="flex items-center gap-4">

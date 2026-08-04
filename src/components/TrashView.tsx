@@ -167,8 +167,8 @@ export function TrashView({
 
       {/* Confirmation Modal for Single Entry Delete */}
       {confirmDeleteEntry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md transition-opacity">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))] backdrop-blur-md transition-opacity">
+          <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-[#FF3B30]">
                 <AlertTriangle className="w-6 h-6 stroke-[2.2] text-[#FF3B30]" />
@@ -211,8 +211,8 @@ export function TrashView({
 
       {/* Confirmation Modal for Empty All Trash */}
       {confirmEmptyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md transition-opacity">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))] backdrop-blur-md transition-opacity">
+          <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-[#FF3B30]">
                 <AlertTriangle className="w-6 h-6 stroke-[2.2] text-[#FF3B30]" />

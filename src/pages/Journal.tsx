@@ -261,7 +261,7 @@ export default function Journal() {
   return (
     <div className="min-h-screen text-slate-900 pb-20 relative bg-[#f3f6fc] selection:bg-[#007AFF] selection:text-white">
       {/* Top Navigation Bar - Stays STILL while rest of page scrolls */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs pt-[env(safe-area-inset-top,0px)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-8 py-3">
           {/* Left: MindLog Brand Logo & Title */}
           <div className="flex items-center gap-3">
@@ -282,7 +282,7 @@ export default function Journal() {
           {/* Right Controls: Search, Trash & Preferences */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Search Input Box */}
-            <div className="relative w-36 sm:w-64">
+            <div className="relative w-28 xs:w-36 sm:w-64 focus-within:w-40 sm:focus-within:w-64 transition-all duration-200">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
               <input
                 value={query}
@@ -429,7 +429,7 @@ export default function Journal() {
       </header>
 
       {/* Main Container */}
-      <main className="mx-auto max-w-6xl px-4 sm:px-8 pt-20 sm:pt-24">
+      <main className="mx-auto max-w-6xl px-4 sm:px-8 pt-[calc(5.25rem+env(safe-area-inset-top,0px))] sm:pt-24">
         {/* HERO SECTION: App Title & Integrated Dashboard Widgets */}
         <section className="mb-8">
           {/* Big App Title Header */}
@@ -738,7 +738,7 @@ export default function Journal() {
 
       {/* Floating Preferences Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl text-xs font-extrabold animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-4 sm:right-6 z-50 flex items-center gap-2 rounded-2xl bg-slate-900 text-white px-4 py-3 shadow-2xl text-xs font-extrabold animate-in fade-in slide-in-from-bottom-5 duration-200">
           <Sparkles className="w-4 h-4 text-[#007AFF]" />
           <span>{toastMessage}</span>
         </div>

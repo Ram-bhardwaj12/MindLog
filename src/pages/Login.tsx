@@ -56,7 +56,7 @@ export default function Login() {
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#f3f6fc] flex flex-col justify-between p-4 sm:p-6 lg:p-8 select-none selection:bg-[#007AFF] selection:text-white">
+    <div className="min-h-[100dvh] w-full overflow-y-auto bg-[#f3f6fc] flex flex-col justify-between p-4 sm:p-6 lg:p-8 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] select-none selection:bg-[#007AFF] selection:text-white">
       {/* Eye-Catchy Big Brand Header */}
       <header className="flex items-center justify-between mx-auto max-w-6xl w-full py-2 shrink-0 border-b border-slate-200/80 pb-3">
         <div className="flex items-center gap-3.5">
