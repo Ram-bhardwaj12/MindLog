@@ -283,15 +283,17 @@ export default function Journal() {
           {/* Right Controls: Search, Trash & Preferences */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Search Input Box */}
-            <div className="relative w-28 xs:w-32 sm:w-64 focus-within:w-48 xs:focus-within:w-56 sm:focus-within:w-64 transition-all duration-300 ease-out">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            <div className="relative w-32 xs:w-36 sm:w-64 focus-within:w-48 xs:focus-within:w-56 sm:focus-within:w-64 transition-all duration-300 ease-out">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
                 placeholder={isSearchFocused || query ? "Search notes..." : "Search"}
-                className="w-full rounded-2xl border border-slate-300 bg-white pl-9 pr-8 py-1.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#007AFF] focus:ring-2 focus:ring-blue-500/20 font-semibold shadow-2xs"
+                className={`w-full rounded-2xl border border-slate-300 bg-white pl-8 py-1.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#007AFF] focus:ring-2 focus:ring-blue-500/20 font-semibold shadow-2xs ${
+                  query ? 'pr-8' : 'pr-3 sm:pr-8'
+                }`}
               />
               {query ? (
                 <button
