@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { EntryEditor, type SavePayload } from '../components/EntryEditor'
-import { EntryCard } from '../components/EntryCard'
+import { EntryCard, EntryCardSkeleton } from '../components/EntryCard'
 import { CalendarView } from '../components/CalendarView'
 import { TimelineView } from '../components/TimelineView'
 import { TrashView } from '../components/TrashView'
@@ -648,11 +648,10 @@ export default function Journal() {
 
         {/* VIEW CONTENTS */}
         {loading ? (
-          <div className="rounded-3xl border border-slate-200 bg-white py-20 text-center shadow-2xs">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-[#007AFF] animate-pulse mb-3">
-              <BookOpen className="w-6 h-6 text-[#007AFF]" />
-            </div>
-            <p className="font-mono text-sm font-bold text-slate-600">Syncing your journal memories…</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
+            <EntryCardSkeleton />
+            <EntryCardSkeleton />
+            <EntryCardSkeleton />
           </div>
         ) : loadError ? (
           <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center shadow-2xs">
@@ -687,18 +686,26 @@ export default function Journal() {
           />
         ) : (
           /* Cards View Mode: Segregated by Month & Year, arranged by date */
-          <div className="space-y-8">
+          <div className="space-y-8 animate-in fade-in zoom-in-98 duration-200">
             {filtered.length === 0 ? (
-              <div className="rounded-3xl border border-slate-200 bg-white py-20 text-center shadow-sm">
-                <p className="font-extrabold text-xl text-slate-600">
-                  {activeEntries.length === 0 ? 'No journal pages created yet.' : 'No matching entries found.'}
+              <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white p-8 sm:p-14 text-center shadow-xs animate-in fade-in duration-200">
+                <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-50/80 text-[#007AFF] mb-4 ring-8 ring-blue-50/40">
+                  <BookOpen className="w-10 h-10 stroke-[2] text-[#007AFF]" />
+                </div>
+                <h3 className="font-black text-xl sm:text-2xl text-slate-900 tracking-tight">
+                  {activeEntries.length === 0 ? 'No journal pages created yet' : 'No matching entries found'}
+                </h3>
+                <p className="mt-2 text-xs sm:text-sm font-semibold text-slate-600 max-w-md leading-relaxed">
+                  {activeEntries.length === 0
+                    ? 'Your sanctuary is empty. Capture your daily thoughts, reflections, photos, and voice notes today!'
+                    : 'Try adjusting your search query or filters to find what you are looking for.'}
                 </p>
                 {activeEntries.length === 0 && (
                   <button
                     onClick={() => setEditorEntry(null)}
-                    className="mt-4 rounded-2xl bg-[#007AFF] px-6 py-2.5 text-xs font-extrabold text-white transition hover:bg-blue-600 shadow-md cursor-pointer"
+                    className="mt-6 rounded-2xl bg-[#007AFF] px-6 py-3 text-xs sm:text-sm font-black text-white transition hover:bg-blue-600 active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer"
                   >
-                    + Write First Entry Today
+                    + Write Your First Page
                   </button>
                 )}
               </div>

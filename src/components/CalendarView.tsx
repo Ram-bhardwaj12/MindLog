@@ -201,7 +201,7 @@ export function CalendarView({
             <button
               key={idx}
               onClick={() => onSelectDate(cell.dateStr === selectedDate ? null : cell.dateStr)}
-              className={`group relative flex h-14 sm:h-16 w-full flex-col justify-between rounded-2xl p-1.5 sm:p-2 transition-all cursor-pointer border ${
+              className={`group relative flex h-14 sm:h-16 w-full flex-col justify-between rounded-2xl p-1.5 sm:p-2 transition-all duration-150 active:scale-95 cursor-pointer border ${
                 cell.isSelected
                   ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md ring-2 ring-blue-300'
                   : cell.isToday

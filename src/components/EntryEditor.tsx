@@ -12,7 +12,8 @@ import {
   List,
   Image as ImageIcon,
   Video as VideoIcon,
-  Mic
+  Mic,
+  Loader2
 } from 'lucide-react'
 import type { EntryFontSize, EntryLineHeight, EntryMedia, JournalEntry, MediaKind } from '../types'
 import { createEntry } from '../lib/entries'
@@ -300,9 +301,9 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
           handleSave()
         }
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 sm:p-6 backdrop-blur-md transition-opacity pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 sm:p-6 backdrop-blur-md transition-opacity duration-200 animate-in fade-in pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]"
     >
-      <div className="flex h-[100dvh] sm:h-[92vh] max-h-[100dvh] w-full max-w-5xl flex-col rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 bg-white shadow-2xl overflow-hidden text-slate-900">
+      <div className="flex h-[100dvh] sm:h-[92vh] max-h-[100dvh] w-full max-w-5xl flex-col rounded-none sm:rounded-3xl border-0 sm:border border-slate-200 bg-white shadow-2xl overflow-hidden text-slate-900 animate-in zoom-in-95 slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200 ease-out">
         {/* Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-5 sm:px-8 py-4 sm:py-5">
           <div className="flex items-center gap-4">
@@ -334,9 +335,13 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
               <button
                 onClick={handleDelete}
                 disabled={deleting || saving}
-                className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs sm:text-sm font-extrabold text-[#FF3B30] transition hover:bg-[#FF3B30] hover:text-white disabled:opacity-50 cursor-pointer shadow-xs"
+                className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs sm:text-sm font-extrabold text-[#FF3B30] transition hover:bg-[#FF3B30] hover:text-white disabled:opacity-50 cursor-pointer shadow-xs active:scale-95"
               >
-                <Trash2 className="h-4 w-4 text-current" />
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 text-current animate-spin shrink-0" />
+                ) : (
+                  <Trash2 className="h-4 w-4 text-current shrink-0" />
+                )}
                 <span className="hidden sm:inline">{deleting ? 'Deleting…' : 'Delete'}</span>
               </button>
             )}
@@ -346,7 +351,11 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
               disabled={saving || deleting}
               className="flex items-center gap-2 rounded-2xl bg-[#007AFF] px-5 py-2.5 text-xs sm:text-sm font-black text-white shadow-md transition hover:bg-blue-600 active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <Save className="h-4 w-4 text-white" />
+              {saving ? (
+                <Loader2 className="h-4 w-4 text-white animate-spin shrink-0" />
+              ) : (
+                <Save className="h-4 w-4 text-white shrink-0" />
+              )}
               <span>{saving ? 'Saving…' : 'Save Entry'}</span>
             </button>
 
@@ -366,8 +375,8 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
         )}
 
         {/* Top Control Bar: Formatting + Media Attachment Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3.5 border-b border-slate-200 bg-slate-50/50 px-5 sm:px-8 py-3.5 text-sm">
-          <div className="flex flex-wrap items-center gap-3.5">
+        <div className="flex items-center justify-between gap-3.5 border-b border-slate-200 bg-slate-50/50 px-4 sm:px-8 py-3 text-sm overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex items-center gap-3.5 shrink-0">
             {/* Title Font Selector */}
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-slate-600 text-xs sm:text-sm">Title Font:</span>
@@ -693,7 +702,11 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
               disabled={saving || deleting}
               className="flex items-center gap-2 rounded-2xl bg-[#007AFF] px-5 py-2 text-xs sm:text-sm font-black text-white shadow-md transition hover:bg-blue-600 active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <Save className="h-4 w-4 text-white" />
+              {saving ? (
+                <Loader2 className="h-4 w-4 text-white animate-spin shrink-0" />
+              ) : (
+                <Save className="h-4 w-4 text-white shrink-0" />
+              )}
               <span>{saving ? 'Saving…' : 'Save Entry'}</span>
             </button>
           </div>

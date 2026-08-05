@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2, Lock, Mail, BookOpen, Sparkles, Eye, EyeOff } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Lock, Mail, BookOpen, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { DeskScene } from '../components/DeskScene'
 
@@ -224,9 +224,16 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-[#007AFF] py-3 text-sm font-black text-white shadow-md transition hover:bg-blue-600 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#007AFF] py-3.5 text-sm font-black text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
               >
-                {loading ? 'Please wait…' : mode === 'sign_in' ? 'Sign In to Journal' : 'Create Free Account'}
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-white animate-spin shrink-0" />
+                    <span>Please wait…</span>
+                  </>
+                ) : (
+                  <span>{mode === 'sign_in' ? 'Sign In to Journal' : 'Create Free Account'}</span>
+                )}
               </button>
             </form>
 

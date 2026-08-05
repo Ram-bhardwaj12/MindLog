@@ -70,17 +70,17 @@ export function TrashView({
 
       {/* Deleted Entries Feed */}
       {deletedEntries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white py-16 text-center shadow-sm">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#007AFF] mb-2">
-            <Sparkles className="w-8 h-8 stroke-[2.2] text-[#007AFF]" />
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white p-8 sm:p-14 text-center shadow-xs animate-in fade-in duration-200">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-50/80 text-[#007AFF] mb-4 ring-8 ring-blue-50/40">
+            <Trash2 className="w-10 h-10 stroke-[2] text-[#007AFF]" />
           </div>
-          <h3 className="font-extrabold text-xl text-slate-900">Recycle Bin is Empty</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-600 max-w-sm">
-            No deleted entries here. Pages you remove from your journal will appear here so you can safely restore them whenever you like.
+          <h3 className="font-black text-xl sm:text-2xl text-slate-900 tracking-tight">Recycle Bin is Empty</h3>
+          <p className="mt-2 text-xs sm:text-sm font-semibold text-slate-600 max-w-md leading-relaxed">
+            No deleted pages here. Entries you delete will be safely kept here so you can restore them anytime!
           </p>
           <button
             onClick={onNewEntry}
-            className="mt-5 rounded-2xl bg-[#007AFF] px-6 py-3 text-xs font-extrabold text-white transition hover:bg-blue-600 shadow-md cursor-pointer"
+            className="mt-6 rounded-2xl bg-[#007AFF] px-6 py-3 text-xs sm:text-sm font-black text-white transition hover:bg-blue-600 active:scale-95 shadow-md shadow-blue-500/20 cursor-pointer"
           >
             + Create New Entry
           </button>

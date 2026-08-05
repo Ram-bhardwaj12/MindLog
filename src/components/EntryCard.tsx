@@ -20,7 +20,7 @@ export function EntryCard({ entry, onOpen }: { entry: JournalEntry; onOpen: () =
   return (
     <div
       onClick={onOpen}
-      className="group relative flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm hover:shadow-xl hover:border-[#007AFF] transition-all duration-200 cursor-pointer overflow-hidden"
+      className="group relative flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-[#007AFF] active:scale-[0.98] transition-all duration-200 ease-out cursor-pointer overflow-hidden"
     >
       <div>
         {/* Top Header Row: Date Badge & Bookmark */}
@@ -71,6 +71,29 @@ export function EntryCard({ entry, onOpen }: { entry: JournalEntry; onOpen: () =
         <span className="text-[#007AFF] font-extrabold group-hover:translate-x-0.5 transition">
           Open page →
         </span>
+      </div>
+    </div>
+  )
+}
+
+export function EntryCardSkeleton() {
+  return (
+    <div className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs animate-pulse">
+      <div>
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="h-6 w-28 rounded-2xl bg-slate-200" />
+          <div className="h-7 w-7 rounded-xl bg-slate-200" />
+        </div>
+        <div className="mb-3.5 h-36 w-full rounded-2xl bg-slate-200" />
+        <div className="h-6 w-3/4 rounded-xl bg-slate-200 mb-2" />
+        <div className="space-y-1.5">
+          <div className="h-4 w-full rounded-lg bg-slate-200" />
+          <div className="h-4 w-5/6 rounded-lg bg-slate-200" />
+        </div>
+      </div>
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+        <div className="h-4 w-16 rounded-lg bg-slate-200" />
+        <div className="h-4 w-20 rounded-lg bg-slate-200" />
       </div>
     </div>
   )
