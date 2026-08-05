@@ -375,8 +375,8 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
         )}
 
         {/* Top Control Bar: Formatting + Media Attachment Bar */}
-        <div className="flex items-center justify-between gap-3.5 border-b border-slate-200 bg-slate-50/50 px-4 sm:px-8 py-3 text-sm overflow-x-auto no-scrollbar scroll-smooth">
-          <div className="flex items-center gap-3.5 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3.5 border-b border-slate-200 bg-slate-50/50 px-5 sm:px-8 py-3.5 text-sm">
+          <div className="flex flex-wrap items-center gap-3.5">
             {/* Title Font Selector */}
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-slate-600 text-xs sm:text-sm">Title Font:</span>
