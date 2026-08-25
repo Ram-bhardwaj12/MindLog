@@ -1,115 +1,127 @@
-# MindLog 📖
+# Digital Journal App (MindLog) 📖
 
 🚀 **Live Site:** [https://mind-log-smoky.vercel.app](https://mind-log-smoky.vercel.app)
 
-A private journal web app for capturing your thoughts, memories, and rich media entries.
+---
+
+## 📌 Project & Intern Details
+
+| Information | Details |
+| :--- | :--- |
+| **Intern Name** | Ram Bhardwaj |
+| **Intern ID** | `CITS7926` |
+| **Project Name** | Digital Journal App (MindLog) |
+| **Duration** | 4 Weeks |
+| **Live Demo** | [https://mind-log-smoky.vercel.app](https://mind-log-smoky.vercel.app) |
 
 ---
 
-## 🚀 Live Demo
+## 🎯 Project Scope
 
-You can access the live application here:  
-👉 **[https://mind-log-smoky.vercel.app](https://mind-log-smoky.vercel.app)**
+The **Digital Journal App (MindLog)** is a personal journaling web application crafted to provide users with a private, seamless, and aesthetically engaging space to document daily thoughts, track moods, and save rich media memories.
 
----
+### 🌟 Core Objectives & Scope Highlights
 
-## What's in this phase
+1. **User Authentication & Privacy**:
+   - Secure Sign-up, Sign-in, and Session Persistence implemented via **Supabase Auth**.
+   - Strict Row-Level Security (RLS) policies ensuring individual data isolation so each user only accesses their own private journal entries.
 
-- **Login page** (`/login`) — email/password sign in and sign up, "forgot password"
-  flow, and a hand-illustrated desk scene (laptop, notebook, pen, coffee) — no
-  external images, so it renders identically on any machine.
-- **Auth** — real Supabase Auth (`@supabase/supabase-js`). Sessions persist across
-  refreshes; signing out clears them.
-- **Protected journal page** (`/`) — only reachable when signed in. Search, a
-  "New entry" button, and a list of entries sorted by date.
-- **Entry editor** — title, an editable text body, and buttons to attach images,
-  videos, or audio clips. Fully clickable today.
-- Entries currently live in the browser's memory (they reset on refresh) — that's
-  intentional for Phase 1. Phase 2 swaps this for permanent Supabase storage.
+2. **Rich Media Entry Management**:
+   - Dynamic Entry Editor allowing users to create, update, and organize daily logs.
+   - Support for rich multimedia attachments including **Images**, **Audio Clips**, and **Video** embeds.
+   - Real-time search and filter functionality for easy retrieval of entries by date, title, or keywords.
 
----
+3. **Modern & Intuitive UI/UX Design**:
+   - Thoughtfully curated color system featuring warm paper cream tones (`#EEEAE0`), dark ink text, sage, and gold accents to minimize eye strain.
+   - Elegant typography pairing **Fraunces** serif headings, **Work Sans** body text, and **IBM Plex Mono** datelines.
+   - Fully responsive design optimized across mobile, tablet, and desktop screens.
 
-## 1. Create your Supabase project (5 minutes)
+4. **Cloud Infrastructure & Persistence**:
+   - Integrated with **Supabase PostgreSQL** database for persistent data storage.
+   - Dedicated Supabase Storage Buckets for uploading and hosting user multimedia assets.
 
-1. Go to [supabase.com](https://supabase.com) and sign in (free tier is enough).
-2. Click **New project**. Pick any name/region and set a database password
-   (save it somewhere — you won't need it for this phase, but you will for Phase 2).
-3. Once the project finishes provisioning, open **Project Settings → API**.
-4. Copy the **Project URL** and the **anon public** key.
-5. By default, Supabase requires email confirmation for new sign-ups. That's fine —
-   when you sign up in the app, check the inbox you used and click the confirmation
-   link before signing in. (You can turn confirmation off under
-   **Authentication → Providers → Email** while testing, if you'd rather skip that step.)
+5. **Deployment & CI/CD**:
+   - Continuous deployment hosted on **Vercel**, fully linked with the GitHub main repository.
 
 ---
 
-## 2. Run the project in Antigravity
+## 🚀 Features Breakdown
 
-1. Open this folder (`dear-diary/`) in Antigravity as your workspace root.
-2. Open a terminal inside the IDE and install dependencies:
+- **Login & Auth Page (`/login`)**: Email/Password authentication, "Forgot Password" workflow, and an illustrated workspace scene.
+- **Protected Journal Dashboard (`/`)**: Gated route requiring active auth session, featuring entry search, filter chips, and interactive entry cards.
+- **Entry Editor Modal**: Full-featured creation modal for drafting titles, body copy, and attaching multimedia assets.
+
+---
+
+## 💻 Tech Stack
+
+- **Frontend Framework**: React 18 + TypeScript + Vite
+- **Styling**: TailwindCSS + Custom Typography (Fraunces & IBM Plex Mono)
+- **Backend & Auth**: Supabase (PostgreSQL + Auth + Storage)
+- **Icons**: Lucide React
+- **Deployment**: Vercel
+
+---
+
+## 🛠️ Local Development Setup
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/Ram-bhardwaj12/MindLog.git
+   cd MindLog
+   ```
+
+2. **Install Dependencies**:
    ```bash
    npm install
    ```
-3. Create your local env file:
-   ```bash
-   cp .env.example .env
+
+3. **Configure Environment Variables**:
+   Create a `.env` file in the root directory:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
-   Then open `.env` and paste in the **Project URL** and **anon public key** from
-   step 1.
-4. Start the dev server:
+
+4. **Run Development Server**:
    ```bash
    npm run dev
    ```
-5. Open the printed local URL (usually `http://localhost:5173`). You should land
-   on the login page. Create an account, confirm your email if prompted, sign in,
-   and you'll land on the journal page.
-
-If the terminal ever shows a warning about `Missing VITE_SUPABASE_URL`, it means
-`.env` isn't filled in yet — auth calls will fail until it is.
+   Open `http://localhost:5173` in your browser.
 
 ---
 
-## 3. Project structure
+## 📂 Project Structure
 
 ```
 dear-diary/
 ├── src/
 │   ├── components/
-│   │   ├── DeskScene.tsx      # login page illustration
-│   │   ├── EntryCard.tsx      # one row in the entry list
-│   │   ├── EntryEditor.tsx    # new/edit entry modal
-│   │   └── ProtectedRoute.tsx # redirects to /login when signed out
+│   │   ├── DeskScene.tsx      # Illustrated login scene
+│   │   ├── EntryCard.tsx      # Single journal entry item
+│   │   ├── EntryEditor.tsx    # Entry editor modal
+│   │   └── ProtectedRoute.tsx # Route protection guard
 │   ├── context/
-│   │   └── AuthContext.tsx    # app-wide session state
+│   │   └── AuthContext.tsx    # Supabase session provider
 │   ├── lib/
-│   │   └── supabase.ts        # Supabase client
+│   │   └── supabase.ts        # Supabase client setup
 │   ├── pages/
-│   │   ├── Login.tsx
-│   │   └── Journal.tsx
+│   │   ├── Login.tsx          # Login & Signup view
+│   │   └── Journal.tsx        # Dashboard & Entries list
 │   ├── types.ts
 │   ├── App.tsx
 │   └── main.tsx
 ├── .env.example
-└── package.json
+├── package.json
+└── README.md
 ```
 
-## Design notes
+---
 
-Palette is a warm paper cream (`#EEEAE0`) with ink, sage, and gold accents —
-tuned to sit easily on the eyes for something you'll open daily, day or night.
-Headings use **Fraunces** (a warm serif with a handwritten feel), body text
-uses **Work Sans**, and dates/labels use **IBM Plex Mono** for a
-journal-dateline feel. All colors and type live in `tailwind.config.js` if
-you want to adjust them.
+## 🎨 Design & Palette
 
-## Next: Phase 2 (backend)
-
-When you're ready, say so and I'll add:
-- A `journal_entries` table + a `media` storage bucket in Supabase
-- Row Level Security so each user only ever sees their own entries
-- Real create/read/update/delete calls replacing the local state in `Journal.tsx`
-- Actual file uploads (images/video/audio) to Supabase Storage instead of
-  temporary in-browser object URLs
-
-Then **Phase 3 (deployment)**: production build, hosting, environment
-variables on the host, and pushing the finished repo to GitHub.
+- **Primary Canvas**: `#EEEAE0` (Warm Cream Paper)
+- **Typography**: 
+  - Headings: `Fraunces`
+  - Body: `Work Sans`
+  - Datelines/Metadata: `IBM Plex Mono`
