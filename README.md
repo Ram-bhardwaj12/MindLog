@@ -1,16 +1,15 @@
-# Dear Diary — Phase 1: Frontend + Authentication
+# MindLog 📖
 
-A private journal web app. This is **Phase 1 of 3**:
+🚀 **Live Site:** [https://mind-log-smoky.vercel.app](https://mind-log-smoky.vercel.app)
 
-1. ✅ **Frontend + Authentication** (this delivery) — login/signup screen, protected
-   journal shell, new-entry editor with image/video/audio attachments, all running
-   on real Supabase auth.
-2. ⏭ **Backend** — Postgres schema + Row Level Security so entries and media persist
-   per-user in Supabase, replacing the local state used in Phase 1.
-3. ⏭ **Deployment** — hosting the built site (e.g. Vercel/Netlify) and pushing the
-   final repo to GitHub.
+A private journal web app for capturing your thoughts, memories, and rich media entries.
 
-Tell me when you're ready and I'll build Phase 2, wiring this exact UI to a real database.
+---
+
+## 🚀 Live Demo
+
+You can access the live application here:  
+👉 **[https://mind-log-smoky.vercel.app](https://mind-log-smoky.vercel.app)**
 
 ---
 
