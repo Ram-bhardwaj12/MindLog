@@ -1,4 +1,4 @@
--- Dear Diary — Phase 2 backend schema
+-- MindLog backend schema
 -- Run this once in Supabase Dashboard -> SQL Editor -> New query -> Run.
 -- Safe to re-run: uses "if not exists" / "or replace" everywhere it can.
 -- (Already ran this once? Running it again is safe and will just add the

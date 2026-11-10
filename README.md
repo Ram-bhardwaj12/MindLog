@@ -94,7 +94,7 @@ The **Digital Journal App (MindLog)** is a personal journaling web application c
 ## 📂 Project Structure
 
 ```
-dear-diary/
+MindLog/
 ├── src/
 │   ├── components/
 │   │   ├── DeskScene.tsx      # Illustrated login scene
