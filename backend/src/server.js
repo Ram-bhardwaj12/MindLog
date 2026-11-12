@@ -1,6 +1,7 @@
 import app from './app.js';
 import { env } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
+import './config/cloudinary.js';
 import { sweepTempUploads } from './utils/tempSweep.js';
 
 // Connect to MongoDB Atlas before starting the HTTP listener

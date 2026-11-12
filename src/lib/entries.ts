@@ -1,116 +1,13 @@
-import { supabase } from './supabase'
+import { entriesApi, ApiRequestError } from './api'
 import type {
   EntryFontSize,
   EntryLineHeight,
-  EntryMedia,
   JournalEntry,
   MediaKind,
   MSWordFontKey
 } from '../types'
 
-const BUCKET = 'journal-media'
-const SIGNED_URL_TTL_SECONDS = 60 * 60 // 1 hour
-
-interface EntryRow {
-  id: string
-  title: string
-  body_html: string
-  created_at: string
-  updated_at: string
-  mood: string | null
-  title_font_style: string | null
-  font_style: string | null
-  font_size: string | null
-  line_height: string | null
-  bookmarked: boolean
-  deleted_at: string | null
-}
-
-interface MediaRow {
-  id: string
-  entry_id: string
-  kind: MediaKind
-  storage_path: string
-  name: string
-}
-
-const ENTRY_COLUMNS =
-  'id, title, body_html, created_at, updated_at, mood, title_font_style, font_style, font_size, line_height, bookmarked, deleted_at'
-
-function rowToEntry(row: EntryRow, media: EntryMedia[]): JournalEntry {
-  return {
-    id: row.id,
-    title: row.title,
-    bodyHtml: row.body_html,
-    media,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    mood: row.mood ?? undefined,
-    titleFontStyle: (row.title_font_style as MSWordFontKey) ?? undefined,
-    fontStyle: (row.font_style as MSWordFontKey) ?? undefined,
-    fontSize: (row.font_size as EntryFontSize) ?? undefined,
-    lineHeight: (row.line_height as EntryLineHeight) ?? undefined,
-    bookmarked: row.bookmarked,
-    deletedAt: row.deleted_at ?? undefined
-  }
-}
-
-async function signMedia(rows: MediaRow[]): Promise<EntryMedia[]> {
-  if (rows.length === 0) return []
-  const paths = rows.map((r) => r.storage_path)
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, SIGNED_URL_TTL_SECONDS)
-  if (error) throw error
-
-  return rows.map((row, i) => ({
-    id: row.id,
-    kind: row.kind,
-    name: row.name,
-    url: data?.[i]?.signedUrl ?? ''
-  }))
-}
-
-async function currentUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data.user) throw error ?? new Error('Not signed in')
-  return data.user.id
-}
-
-/** Loads every entry (active AND trashed) with its media, signed for viewing. */
-export async function fetchEntries(): Promise<JournalEntry[]> {
-  const { data: entryRows, error: entryError } = await supabase
-    .from('journal_entries')
-    .select(ENTRY_COLUMNS)
-    .order('created_at', { ascending: false })
-  if (entryError) throw entryError
-
-  const { data: mediaRows, error: mediaError } = await supabase
-    .from('entry_media')
-    .select('id, entry_id, kind, storage_path, name')
-  if (mediaError) throw mediaError
-
-  const signedMedia = await signMedia((mediaRows ?? []) as MediaRow[])
-  const mediaByEntry = new Map<string, EntryMedia[]>()
-  ;(mediaRows ?? []).forEach((row, i) => {
-    const list = mediaByEntry.get(row.entry_id) ?? []
-    list.push(signedMedia[i])
-    mediaByEntry.set(row.entry_id, list)
-  })
-
-  return (entryRows as EntryRow[]).map((row) => rowToEntry(row, mediaByEntry.get(row.id) ?? []))
-}
-
-/** Uploads a single file to Storage under the current user's folder and returns its path. */
-export async function uploadMediaFile(entryId: string, file: File): Promise<string> {
-  const userId = await currentUserId()
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const path = `${userId}/${entryId}/${crypto.randomUUID()}-${safeName}`
-
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
-  if (error) throw error
-  return path
-}
-
-interface PendingMedia {
+export interface PendingMedia {
   kind: MediaKind
   file: File
 }
@@ -126,150 +23,204 @@ export interface EntryFields {
   bookmarked?: boolean
 }
 
-async function attachMedia(entryId: string, userId: string, pending: PendingMedia[]): Promise<EntryMedia[]> {
-  if (pending.length === 0) return []
+const MAX_ATTACHMENTS = 20
+const MAX_UPLOAD_CHUNK = 5
+const PURGE_CHUNK_SIZE = 200
 
-  const uploaded = await Promise.all(
-    pending.map(async (p) => ({
-      kind: p.kind,
-      name: p.file.name,
-      path: await uploadMediaFile(entryId, p.file)
-    }))
-  )
-
-  const { data: inserted, error } = await supabase
-    .from('entry_media')
-    .insert(
-      uploaded.map((u) => ({
-        entry_id: entryId,
-        user_id: userId,
-        kind: u.kind,
-        storage_path: u.path,
-        name: u.name
-      }))
-    )
-    .select('id, entry_id, kind, storage_path, name')
-  if (error) throw error
-
-  return signMedia(inserted as MediaRow[])
+const MAX_SIZE_BYTES = {
+  image: 10 * 1024 * 1024, // 10 MB
+  audio: 20 * 1024 * 1024, // 20 MB
+  video: 50 * 1024 * 1024  // 50 MB
 }
 
-/** Creates a new entry (optionally back-dated, e.g. picked from the calendar). */
+/**
+ * Validates pending files against individual size limits and total attachment thresholds.
+ */
+function validatePendingFiles(pending: PendingMedia[]): void {
+  for (const item of pending) {
+    const file = item.file
+    const name = file.name || 'File'
+
+    if (file.type.startsWith('image/') || item.kind === 'image') {
+      if (file.size > MAX_SIZE_BYTES.image) {
+        throw new Error(`"${name}" is too large (max 10 MB for images)`)
+      }
+    } else if (file.type.startsWith('audio/') || item.kind === 'audio') {
+      if (file.size > MAX_SIZE_BYTES.audio) {
+        throw new Error(`"${name}" is too large (max 20 MB for audio)`)
+      }
+    } else if (file.type.startsWith('video/') || item.kind === 'video') {
+      if (file.size > MAX_SIZE_BYTES.video) {
+        throw new Error(`"${name}" is too large (max 50 MB for videos)`)
+      }
+    }
+  }
+}
+
+/**
+ * Loads all active and soft-deleted entries for the authenticated user, newest first.
+ */
+export async function fetchEntries(): Promise<JournalEntry[]> {
+  const data = await entriesApi.list(true)
+  return data.entries
+}
+
+/**
+ * Uploads a single file to an entry and returns its public URL.
+ * Preserved for backwards compatibility with existing consumers.
+ */
+export async function uploadMediaFile(entryId: string, file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append('files', file, file.name)
+  const data = await entriesApi.uploadMedia(entryId, formData)
+  const uploaded = data.entry.media.find((m) => m.name === file.name)
+  return uploaded ? uploaded.url : ''
+}
+
+/**
+ * Creates a new journal entry, back-dated if specified, and uploads pending attachments in chunks of 5.
+ * Rolls back the entry if any upload chunk fails.
+ */
 export async function createEntry(
   fields: EntryFields,
   pending: PendingMedia[],
   createdAt?: string
 ): Promise<JournalEntry> {
-  const userId = await currentUserId()
+  // 1. Pre-validation before network calls
+  if (pending.length > MAX_ATTACHMENTS) {
+    throw new Error(`Cannot attach more than ${MAX_ATTACHMENTS} files (max ${MAX_ATTACHMENTS} attachments per entry)`)
+  }
+  validatePendingFiles(pending)
 
-  const { data: inserted, error: insertError } = await supabase
-    .from('journal_entries')
-    .insert({
-      user_id: userId,
-      title: fields.title,
-      body_html: fields.bodyHtml,
-      mood: fields.mood,
-      title_font_style: fields.titleFontStyle,
-      font_style: fields.fontStyle,
-      font_size: fields.fontSize,
-      line_height: fields.lineHeight,
-      bookmarked: fields.bookmarked,
-      ...(createdAt ? { created_at: createdAt } : {})
-    })
-    .select(ENTRY_COLUMNS)
-    .single()
-  if (insertError) throw insertError
+  // 2. Normalize back-dating date string to full ISO string
+  let isoCreatedAt: string | undefined
+  if (createdAt) {
+    const parsed = new Date(createdAt)
+    if (!isNaN(parsed.getTime())) {
+      isoCreatedAt = parsed.toISOString()
+    }
+  }
 
-  const row = inserted as EntryRow
-  const media = await attachMedia(row.id, userId, pending)
-  return rowToEntry(row, media)
+  // 3. Create entry document on backend
+  const created = await entriesApi.create({
+    ...fields,
+    ...(isoCreatedAt ? { createdAt: isoCreatedAt } : {})
+  })
+  let currentEntry = created.entry
+
+  // 4. Sequentially upload pending attachments in chunks of at most 5
+  if (pending.length > 0) {
+    try {
+      for (let i = 0; i < pending.length; i += MAX_UPLOAD_CHUNK) {
+        const chunk = pending.slice(i, i + MAX_UPLOAD_CHUNK)
+        const formData = new FormData()
+        for (const item of chunk) {
+          formData.append('files', item.file, item.file.name)
+        }
+        const uploaded = await entriesApi.uploadMedia(currentEntry.id, formData)
+        currentEntry = uploaded.entry
+      }
+    } catch (uploadError) {
+      // Best-effort rollback: delete orphaned entry so retry does not duplicate
+      try {
+        await entriesApi.deleteEntry(currentEntry.id)
+      } catch {
+        // Suppress rollback cleanup errors and rethrow original upload error
+      }
+      throw uploadError
+    }
+  }
+
+  return currentEntry
 }
 
-/** Updates an existing entry's fields and uploads any newly attached files. */
+/**
+ * Updates an existing entry's textual fields, removes deleted attachments, and uploads new files.
+ */
 export async function updateEntry(
   id: string,
   fields: EntryFields,
   pending: PendingMedia[],
   keptMediaIds: string[]
 ): Promise<JournalEntry> {
-  const userId = await currentUserId()
+  // 1. Pre-validation: enforce combined total attachments cap and file sizes
+  if (keptMediaIds.length + pending.length > MAX_ATTACHMENTS) {
+    throw new Error(`An entry can have at most ${MAX_ATTACHMENTS} attachments total`)
+  }
+  validatePendingFiles(pending)
 
-  const { data: updated, error: updateError } = await supabase
-    .from('journal_entries')
-    .update({
-      title: fields.title,
-      body_html: fields.bodyHtml,
-      mood: fields.mood,
-      title_font_style: fields.titleFontStyle,
-      font_style: fields.fontStyle,
-      font_size: fields.fontSize,
-      line_height: fields.lineHeight,
-      bookmarked: fields.bookmarked
-    })
-    .eq('id', id)
-    .select(ENTRY_COLUMNS)
-    .single()
-  if (updateError) throw updateError
+  // 2. Update entry textual fields (createdAt is intentionally omitted/immutable)
+  const updated = await entriesApi.update(id, fields)
+  let currentEntry = updated.entry
 
-  // Remove media the user deleted in the editor.
-  const { data: existingMedia } = await supabase
-    .from('entry_media')
-    .select('id, storage_path')
-    .eq('entry_id', id)
-  const toRemove = (existingMedia ?? []).filter((m) => !keptMediaIds.includes(m.id))
-  if (toRemove.length > 0) {
-    await supabase.storage.from(BUCKET).remove(toRemove.map((m) => m.storage_path))
-    await supabase
-      .from('entry_media')
-      .delete()
-      .in('id', toRemove.map((m) => m.id))
+  // 3. Remove attachments that the user deleted in the editor
+  const existingMedia = currentEntry.media || []
+  const toRemove = existingMedia.filter((m) => !keptMediaIds.includes(m.id))
+  for (const item of toRemove) {
+    try {
+      const result = await entriesApi.deleteMedia(id, item.id)
+      currentEntry = result.entry
+    } catch (err) {
+      // Treat 404 as success (already removed on server) so retries succeed safely
+      if (err instanceof ApiRequestError && err.status === 404) {
+        continue
+      }
+      throw err
+    }
   }
 
-  const newMedia = await attachMedia(id, userId, pending)
+  // 4. Upload newly attached files in chunks of at most 5
+  if (pending.length > 0) {
+    for (let i = 0; i < pending.length; i += MAX_UPLOAD_CHUNK) {
+      const chunk = pending.slice(i, i + MAX_UPLOAD_CHUNK)
+      const formData = new FormData()
+      for (const item of chunk) {
+        formData.append('files', item.file, item.file.name)
+      }
+      const uploaded = await entriesApi.uploadMedia(id, formData)
+      currentEntry = uploaded.entry
+    }
+  }
 
-  const { data: remainingRows } = await supabase
-    .from('entry_media')
-    .select('id, entry_id, kind, storage_path, name')
-    .eq('entry_id', id)
-    .in('id', keptMediaIds.length > 0 ? keptMediaIds : ['00000000-0000-0000-0000-000000000000'])
-  const remainingSigned = await signMedia((remainingRows ?? []) as MediaRow[])
-
-  const row = updated as EntryRow
-  return rowToEntry(row, [...remainingSigned, ...newMedia])
+  return currentEntry
 }
 
-/** Soft delete: moves an entry to the trash (keeps the row, media, and files). */
+/**
+ * Soft delete: moves an entry to the trash (preserves document and media).
+ */
 export async function softDeleteEntry(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('journal_entries')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
-  if (error) throw error
+  await entriesApi.trash(id)
 }
 
-/** Restores a soft-deleted entry back to the active list. */
+/**
+ * Restores a soft-deleted entry back to active state.
+ */
 export async function restoreEntry(id: string): Promise<void> {
-  const { error } = await supabase.from('journal_entries').update({ deleted_at: null }).eq('id', id)
-  if (error) throw error
+  await entriesApi.restore(id)
 }
 
-/** Permanently deletes one entry, its media rows, and its files. */
+/**
+ * Permanently deletes an entry along with all associated Cloudinary media.
+ */
 export async function permanentlyDeleteEntry(id: string): Promise<void> {
-  const { data: mediaRows } = await supabase.from('entry_media').select('storage_path').eq('entry_id', id)
-  if (mediaRows && mediaRows.length > 0) {
-    await supabase.storage.from(BUCKET).remove(mediaRows.map((m) => m.storage_path))
-  }
-  const { error } = await supabase.from('journal_entries').delete().eq('id', id)
-  if (error) throw error
+  await entriesApi.deleteEntry(id)
 }
 
-/** Permanently deletes every currently-trashed entry for the signed-in user. */
+/**
+ * Empties trash by purging entry IDs in batches of at most 200.
+ */
 export async function emptyTrash(ids: string[]): Promise<void> {
-  await Promise.all(ids.map((id) => permanentlyDeleteEntry(id)))
+  if (!ids || ids.length === 0) return
+
+  for (let i = 0; i < ids.length; i += PURGE_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + PURGE_CHUNK_SIZE)
+    await entriesApi.purgeTrash(chunk)
+  }
 }
 
-/** Flips the bookmark flag on an entry. */
+/**
+ * Updates bookmark status on an entry.
+ */
 export async function setBookmarked(id: string, bookmarked: boolean): Promise<void> {
-  const { error } = await supabase.from('journal_entries').update({ bookmarked }).eq('id', id)
-  if (error) throw error
+  await entriesApi.setBookmark(id, bookmarked)
 }

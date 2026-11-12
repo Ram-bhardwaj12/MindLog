@@ -118,14 +118,10 @@ export function uploadMiddleware(req, res, next) {
       return next(ApiError.badRequest('No files uploaded'));
     }
 
-    // Clean up temporary files on disk if the client connection aborts prematurely
-    const onAbort = () => {
-      cleanupFiles(req.files);
-    };
-    res.once('close', onAbort);
-    res.once('finish', () => {
-      res.removeListener('close', onAbort);
-    });
+    // NOTE: Temp file cleanup is handled exclusively in media.service.js (finally block).
+    // We deliberately do NOT attach a 'close' listener here because the Vite proxy
+    // closes the upstream connection while the Cloudinary upload stream is still reading
+    // the temp file, which caused premature deletion and 502 errors.
 
     next();
   });

@@ -7,7 +7,7 @@
 
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../config/cloudinary.js';
 import { ApiError } from '../utils/ApiError.js';
 
 /**
