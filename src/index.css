@@ -128,9 +128,14 @@ body, #root, #root *, button, input, select, textarea, p, h1, h2, h3, h4, h5, h6
   font-family: var(--site-font, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Roboto, 'Inter', sans-serif);
 }
 
-/* Entry Body font override system */
-.entry-body-content,
-.entry-body-content * {
+/* Entry Title & Body font override system */
+#root .entry-title-content,
+#root .entry-title-content * {
+  font-family: var(--entry-title-font, var(--site-font, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif)) !important;
+}
+
+#root .entry-body-content,
+#root .entry-body-content * {
   font-family: var(--entry-body-font, var(--site-font, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif)) !important;
 }
 

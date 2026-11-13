@@ -49,8 +49,13 @@ export function EntryCard({ entry, onOpen }: { entry: JournalEntry; onOpen: () =
 
         {/* Title */}
         <h3
-          style={{ fontFamily: FONT_FAMILY_MAP[entry.titleFontStyle || 'display'] }}
-          className="text-lg sm:text-xl font-black text-slate-900 group-hover:text-[#007AFF] transition tracking-tight line-clamp-1"
+          style={
+            {
+              '--entry-title-font': FONT_FAMILY_MAP[entry.titleFontStyle || 'display'],
+              fontFamily: FONT_FAMILY_MAP[entry.titleFontStyle || 'display']
+            } as React.CSSProperties
+          }
+          className="entry-title-content text-lg sm:text-xl font-black text-slate-900 group-hover:text-[#007AFF] transition tracking-tight line-clamp-1"
         >
           {entry.title}
         </h3>

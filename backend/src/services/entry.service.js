@@ -9,6 +9,7 @@
  * reliably strips _id, __v, and userId from responses.
  */
 
+import mongoose from 'mongoose';
 import { Entry } from '../models/Entry.js';
 import { ApiError } from '../utils/ApiError.js';
 import { sanitizeTitle, sanitizeBody } from '../utils/sanitize.js';
@@ -256,10 +257,12 @@ export async function purgeTrash(userId, ids) {
   }
 
   // Load matching trashed entries first
+  // Note: mongoose.trusted is required when mongoose.set('sanitizeFilter', true) is active,
+  // preventing Mongoose from wrapping query operators with $eq and failing schema casting.
   const entries = await Entry.find({
-    _id: { $in: ids },
+    _id: mongoose.trusted({ $in: ids }),
     userId,
-    deletedAt: { $ne: null },
+    deletedAt: mongoose.trusted({ $ne: null }),
   });
 
   if (entries.length === 0) {
@@ -268,9 +271,9 @@ export async function purgeTrash(userId, ids) {
 
   const targetIds = entries.map((e) => e._id);
   const result = await Entry.deleteMany({
-    _id: { $in: targetIds },
+    _id: mongoose.trusted({ $in: targetIds }),
     userId,
-    deletedAt: { $ne: null },
+    deletedAt: mongoose.trusted({ $ne: null }),
   });
 
   // Trigger media cleanup hook

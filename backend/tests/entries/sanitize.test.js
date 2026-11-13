@@ -59,7 +59,6 @@ describe('HTML & Title Sanitizer Unit Tests', () => {
     it('strips images (<img>) and links (<a>) completely', () => {
       const input = '<img src="https://evil.com/x.jpg" onerror="alert(1)" /><a href="https://example.com">Visit</a>';
       const cleaned = sanitizeBody(input);
-      // img tag dropped, <a> dropped but text content 'Visit' kept
       assert.equal(cleaned, 'Visit');
       assert.ok(!cleaned.includes('<img'));
       assert.ok(!cleaned.includes('<a'));
@@ -97,45 +96,76 @@ describe('HTML & Title Sanitizer Unit Tests', () => {
     });
   });
 
-  describe('sanitizeTitle', () => {
-    it('does NOT HTML-encode characters like & or quotes (Part A requirement)', () => {
-      // 1. Tom & Jerry -> Tom & Jerry (not Tom &amp; Jerry)
-      assert.equal(sanitizeTitle('Tom & Jerry'), 'Tom & Jerry');
+  describe('sanitizeTitle (Part B Bug Fix & Hardening)', () => {
+    it('preserves literal entity strings without decoding them into tags', () => {
+      // &lt;b&gt; must stay &lt;b&gt;, NOT decode into <b>
+      assert.equal(sanitizeTitle('&lt;b&gt;'), '&lt;b&gt;');
 
-      // 2. 5 < 6 > 4 -> 5 < 6 > 4
-      assert.equal(sanitizeTitle('5 < 6 > 4'), '5 < 6 > 4');
+      // &amp; must stay &amp;, NOT decode into &
+      assert.equal(sanitizeTitle('&amp;'), '&amp;');
 
-      // 3. Quotes and apostrophes
-      assert.equal(sanitizeTitle('"Quotes" and \'apostrophes\''), '"Quotes" and \'apostrophes\'');
-
-      // 4. bold title -> bold title
-      assert.equal(sanitizeTitle('<b>bold</b> title'), 'bold title');
-
-      // 5. <script>alert(1)</script>Hi -> Hi
-      assert.equal(sanitizeTitle('<script>alert(1)</script>Hi'), 'Hi');
+      // a &amp b
+      assert.equal(sanitizeTitle('a &amp b'), 'a &amp b');
     });
 
-    it('strips all HTML tags and returns plain text', () => {
-      const raw = '<b>Bold Title</b> <script>alert(1)</script> <i>Subtitle</i>';
-      const cleaned = sanitizeTitle(raw);
-      assert.equal(cleaned, 'Bold Title Subtitle');
-      assert.ok(!cleaned.includes('<'));
-      assert.ok(!cleaned.includes('>'));
-      assert.ok(!cleaned.includes('alert'));
+    it('preserves plain text containing & or comparison brackets or quotes exactly as typed', () => {
+      // Tom & Jerry
+      assert.equal(sanitizeTitle('Tom & Jerry'), 'Tom & Jerry');
+
+      // 5 < 6 > 4
+      assert.equal(sanitizeTitle('5 < 6 > 4'), '5 < 6 > 4');
+
+      // "quotes" and 'apostrophes'
+      assert.equal(sanitizeTitle('"quotes"'), '"quotes"');
+      assert.equal(sanitizeTitle('"quotes" and \'apostrophes\''), '"quotes" and \'apostrophes\'');
+    });
+
+    it('safely strips real HTML tags and dangerous elements with their contents', () => {
+      // <b>bold</b> title -> bold title
+      assert.equal(sanitizeTitle('<b>bold</b> title'), 'bold title');
+
+      // <script>alert(1)</script>Hi -> Hi
+      assert.equal(sanitizeTitle('<script>alert(1)</script>Hi'), 'Hi');
+
+      // <style>body{color:red}</style>Content -> Content
+      assert.equal(sanitizeTitle('<style>body{color:red}</style>Content'), 'Content');
+
+      // Nested or interleaved tags: <<SCRIPT>alert(1)//<</SCRIPT>Clean -> Clean or safe
+      const nested = sanitizeTitle('<<SCRIPT>alert(1)//<</SCRIPT>Clean');
+      assert.ok(!nested.includes('alert'));
+      assert.ok(!nested.includes('SCRIPT'));
+    });
+
+    it('is strictly idempotent for all canonical and edge cases: sanitizeTitle(sanitizeTitle(x)) === sanitizeTitle(x)', () => {
+      const testInputs = [
+        '&lt;b&gt;',
+        '&amp;',
+        'Tom & Jerry',
+        '5 < 6 > 4',
+        '"quotes"',
+        'a &amp b',
+        '<b>bold</b> title',
+        '<script>alert(1)</script>Hi',
+        '<style>body{color:red}</style>Content',
+        'Simple Title',
+        '   Padded   Whitespace   Title   ',
+      ];
+
+      for (const input of testInputs) {
+        const pass1 = sanitizeTitle(input);
+        const pass2 = sanitizeTitle(pass1);
+        assert.equal(
+          pass2,
+          pass1,
+          `Failed idempotence for input: "${input}" (pass1="${pass1}", pass2="${pass2}")`
+        );
+      }
     });
 
     it('collapses control characters and multiline whitespaces into a single space', () => {
       const raw = 'First Line\r\n\tSecond Line\x00\x1f   Third Line  ';
       const cleaned = sanitizeTitle(raw);
       assert.equal(cleaned, 'First Line Second Line Third Line');
-    });
-
-    it('is strictly idempotent for titles', () => {
-      const raw = '<h1>Trip to Kyoto</h1>\n<p>Day 1</p>';
-      const pass1 = sanitizeTitle(raw);
-      const pass2 = sanitizeTitle(pass1);
-      assert.equal(pass1, pass2);
-      assert.equal(pass1, 'Trip to Kyoto Day 1');
     });
 
     it('handles null, undefined, and empty string safely', () => {
@@ -145,4 +175,3 @@ describe('HTML & Title Sanitizer Unit Tests', () => {
     });
   });
 });
-

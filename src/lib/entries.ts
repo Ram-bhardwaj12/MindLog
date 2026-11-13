@@ -93,11 +93,28 @@ export async function createEntry(
   validatePendingFiles(pending)
 
   // 2. Normalize back-dating date string to full ISO string
+  // If YYYY-MM-DD format is provided, construct date at LOCAL NOON to prevent timezone boundary drift
   let isoCreatedAt: string | undefined
   if (createdAt) {
-    const parsed = new Date(createdAt)
-    if (!isNaN(parsed.getTime())) {
-      isoCreatedAt = parsed.toISOString()
+    const ymdMatch = createdAt.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (ymdMatch) {
+      const year = Number(ymdMatch[1])
+      const month = Number(ymdMatch[2])
+      const day = Number(ymdMatch[3])
+      const localNoon = new Date(year, month - 1, day, 12, 0, 0, 0)
+      if (
+        localNoon.getFullYear() !== year ||
+        localNoon.getMonth() !== month - 1 ||
+        localNoon.getDate() !== day
+      ) {
+        throw new Error(`Invalid calendar date: "${createdAt}" is not a real date`)
+      }
+      isoCreatedAt = localNoon.toISOString()
+    } else {
+      const parsed = new Date(createdAt)
+      if (!isNaN(parsed.getTime())) {
+        isoCreatedAt = parsed.toISOString()
+      }
     }
   }
 

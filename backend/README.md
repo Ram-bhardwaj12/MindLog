@@ -532,4 +532,85 @@ File types and kinds are strictly decided from **file content bytes** via `file-
 }
 ```
 
+---
+
+## 🔒 Security Architecture (Phase 8)
+
+MindLog implements defense-in-depth security hardening across network, transport, application, and database layers.
+
+### 🛡️ Core Protections & Controls
+
+1. **Authentication & Cookie Security**:
+   - `HttpOnly`: Auth JWT (`mindlog_token`) is strictly inaccessible to client-side scripts, neutralizing token-theft XSS.
+   - `SameSite=Lax`: First-party cookie delivery model protecting against CSRF in cross-site requests.
+   - `Secure`: Dynamically enforced in production environments (`NODE_ENV === 'production'`) and whenever `COOKIE_SAMESITE=none`.
+   - Algorithm Whitelist: Strict `HS256` validation prevents algorithm confusion and `none`-algorithm exploits.
+
+2. **CORS & Origin Verification**:
+   - Explicit whitelist matching via `CLIENT_ORIGINS`. Disallowed or `null` origins attempting state-changing requests are rejected with `403 FORBIDDEN`.
+   - `credentials: true` enables authenticated cookie transport exclusively from trusted origins.
+   - `maxAge: 600`: Preflight options are cached for 10 minutes to reduce CORS overhead.
+   - `Vary: Origin`: Standard caching header sent on all echoed origin responses.
+
+3. **Multi-Tier Rate Limiting (`express-rate-limit` v8)**:
+   - Configured via `src/config/limits.js` using `standardHeaders: 'draft-7'` and legacy headers disabled. Custom 429 envelope `{ success: false, error: { code: 'TOO_MANY_REQUESTS', message: '...' } }` with standard `Retry-After` header.
+   - **General API Limiter**: 1,000 requests per 15 minutes per IP across all `/api/*` routes (bypassing `/api/health`). Uses `ipKeyGenerator` to handle IPv6/IPv4 normalization.
+   - **Auth Per-IP Limiter**: 10 requests per 15 minutes per IP on `/api/auth/register` and `/api/auth/login`.
+   - **Auth Per-Email Login Limiter**: 10 failed/successful attempts per 15 minutes keyed by `sha256(email.toLowerCase().trim())`. Mounted after schema validation to prevent dictionary attacks against single accounts without revealing account existence.
+   - **Entry Mutating Write Limiter**: 200 write requests (`POST`, `PUT`, `PATCH`, `DELETE` excluding media upload) per 15 minutes keyed by authenticated user ID (`req.user._id`). Mounted strictly after `requireAuth`.
+   - **Media Upload Limiter**: 30 upload attempts per 1 hour keyed by user ID (`req.user._id`). Mounted after `requireAuth` and **before** Multer so rate-limited requests consume zero disk storage or bandwidth.
+
+4. **NoSQL Injection Defense in Depth**:
+   - `mongoose.set('sanitizeFilter', true)` enabled globally in Mongoose configuration.
+   - `rejectOperatorKeys` middleware: Recursively scans `req.body`, `req.query`, and `req.params` (depth limit 10) and rejects with `400 BAD_REQUEST` ("Invalid request") any key that starts with `$` or contains `.`.
+   - Prevents object injection attacks like `{"email": {"$ne": null}}` before parameters reach controllers or queries.
+
+5. **HTML & Title Sanitization**:
+   - `sanitizeBodyHtml`: Strict HTML tag and CSS property allowlist via `sanitize-html`. Strips `<script>`, `<style>`, `<iframe>`, and active handlers.
+   - `sanitizeTitle`: Strips HTML tags and collapses whitespace while preserving plain text characters (`&`, `<`, `>`, `"`) without entity double-decoding or corruption. Idempotent across multiple saves.
+
+6. **Ownership Scoping & Enumeration Defense**:
+   - All entry queries enforce `{ _id: entryId, userId: req.user._id }`.
+   - Attempts to access or modify foreign entries return `404 NOT_FOUND` rather than `403 FORBIDDEN`, preventing attackers from enumerating valid resource IDs.
+
+7. **Media Upload & Byte-Level Inspection**:
+   - Multer streams files to temporary storage using randomized UUID filenames.
+   - Magic byte sniffing via `file-type` checks real binary signatures, rejecting spoofed extensions (e.g. `.exe` disguised as `.png`).
+   - Strict size caps: 10 MB images, 20 MB audio, 50 MB video.
+   - SVGs are explicitly rejected with `415 UNSUPPORTED_MEDIA_TYPE` to eliminate SVG-embedded script execution.
+   - All-or-nothing rollback ensures failed batch uploads immediately destroy already uploaded assets in Cloudinary.
+
+8. **HTTP & Server Hardening**:
+   - `X-Powered-By`: Explicitly disabled to minimize fingerprinting.
+   - Helmet: Standard security headers (HSTS, frameguard, X-Content-Type-Options, etc.).
+   - `Cache-Control: no-store`: Enforced on all `/api/auth/*` and `/api/entries/*` endpoints to prevent intermediate caching of sensitive user journal data.
+   - Content-Type Enforcement: Rejects `POST`, `PUT`, and `PATCH` requests missing `Content-Type: application/json` on JSON endpoints with `415 UNSUPPORTED_MEDIA_TYPE`.
+   - Reverse Proxy Configuration: `TRUST_PROXY_HOPS` configurable (0–5, default 1). Accurately resolves real client IP through multi-hop proxy chains (e.g. Vercel -> Render).
+   - Server Timeouts:
+     - `server.keepAliveTimeout = 65000` (65s)
+     - `server.headersTimeout = 66000` (66s)
+     - `server.requestTimeout = 300000` (5 minutes, accommodating slow 50 MB uploads)
+   - Process Safety: Sanitized `unhandledRejection` and `uncaughtException` handlers log only error names (never stack traces or user payloads) before initiating graceful exit with a 10s forced exit timer.
+   - Production Environment Fail-Fast: Validates required variables on boot, rejecting default placeholders, missing origins, or HTTP URLs.
+
+---
+
+### ⚠️ Known Limitations & Trade-Offs
+
+1. **In-Memory Rate Limit Store**:
+   - Rate limit buckets are stored in process memory. Counters reset upon server restart or redeployment, and buckets are not shared across multi-instance clusters (requires Redis/memcached if scaling horizontally).
+2. **Stateless Token Revocation**:
+   - JWT tokens remain valid until expiration (7 days). Logout clears the client cookie, but server-side token revocation / blocklists require token versioning (planned for Phase 7).
+3. **Email Enumeration on Registration**:
+   - `POST /api/auth/register` returns `409 CONFLICT` when an email already exists. This informs users their account exists, but theoretically permits email enumeration.
+4. **Public Unguessable Media URLs**:
+   - Cloudinary uploaded assets are generated with unguessable random UUIDs in folder hierarchies (`mindlog/{userId}/{entryId}/<uuid>`). However, anyone in possession of the exact URL can access the asset without authentication.
+5. **No Per-User Storage Quota**:
+   - The application does not track aggregate media disk storage per user account.
+6. **No Account Lockout**:
+   - Accounts are not locked out after repeated failed logins; protection relies entirely on IP and per-email rate limiters.
+7. **No Email Verification**:
+   - Accounts are active immediately upon registration without email verification flows.
+
+
 

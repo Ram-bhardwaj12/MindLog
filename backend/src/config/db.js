@@ -2,6 +2,9 @@ import mongoose from 'mongoose';
 import { env } from './env.js';
 import { applyDnsServers } from './dns.js';
 
+// Defense-in-depth: Automatically sanitizes query filter objects against NoSQL injection
+mongoose.set('sanitizeFilter', true);
+
 /**
  * Connects Mongoose to the MongoDB Atlas cluster.
  * Fails safely without ever logging or leaking the connection URI.

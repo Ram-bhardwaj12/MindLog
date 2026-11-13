@@ -111,9 +111,6 @@ export function sanitizeBody(rawHtml) {
 
 /**
  * Helper to decode HTML entities in plain text strings.
- * sanitize-html escapes characters like &, <, >, ", ' by default.
- * Titles are rendered by React directly as text (never via innerHTML),
- * so they must remain in unescaped plain text form to avoid double escaping.
  *
  * @param {string} str
  * @returns {string}
@@ -130,13 +127,27 @@ export function decodeHtmlEntities(str) {
 }
 
 /**
- * Sanitizes an entry title.
- * Since Step 0 confirmed title is plain text from an <input> and rendered
- * without dangerouslySetInnerHTML, all HTML tags are stripped, control
- * characters collapsed, and whitespace trimmed.
+ * Sanitizes an entry title without round-tripping through HTML entity encoding.
  *
- * NOTE: The result is decoded so characters like '&' or quotes are not
- * stored as '&amp;' or '&quot;' (React automatically escapes plain text on render).
+ * THE BUG IN PREVIOUS VERSIONS (Phase 8 Part B):
+ * Previously, sanitizeHtml(title, { allowedTags: [] }) stripped tags but simultaneously
+ * escaped characters like '&' into '&amp;'. To compensate, decodeHtmlEntities was run.
+ * However, this caused literal entities typed by the user (such as '&lt;b&gt;' or '&amp;')
+ * to be prematurely decoded into '<b>' or '&'. On a subsequent edit/save, the resulting
+ * '<b>' was stripped as an actual HTML tag, violating idempotence and corrupting user data.
+ *
+ * THE DEFENSIVE APPROACH:
+ * Titles are rendered by React as plain text DOM children (e.g. <h2>{entry.title}</h2>),
+ * which natively and safely escapes all characters. Thus, titles should never undergo
+ * HTML entity encoding or decoding round-trips. We strip dangerous elements (<script>,
+ * <style>, <iframe>, etc.) along with their contents, strip real HTML tags (matching
+ * tag names beginning with an ASCII letter), and collapse control characters and whitespace.
+ *
+ * Guarantees:
+ * 1. Plain text and literal entities (e.g. '&lt;b&gt;', '&amp;', 'Tom & Jerry', '5 < 6 > 4',
+ *    '"quotes"', 'a &amp b') are stored exactly as typed.
+ * 2. Real HTML tags (e.g. '<b>bold</b>', '<script>alert(1)</script>') are safely stripped.
+ * 3. Idempotence holds strictly: sanitizeTitle(sanitizeTitle(x)) === sanitizeTitle(x).
  *
  * @param {string|unknown} rawTitle - Raw title string
  * @returns {string} Clean plain text title
@@ -145,19 +156,25 @@ export function sanitizeTitle(rawTitle) {
   if (rawTitle === null || rawTitle === undefined) {
     return '';
   }
-  const stringValue = typeof rawTitle === 'string' ? rawTitle : String(rawTitle);
+  let str = typeof rawTitle === 'string' ? rawTitle : String(rawTitle);
 
-  // Strip all HTML tags
-  const stripped = sanitizeHtml(stringValue, {
-    allowedTags: [],
-    allowedAttributes: {},
-    nonTextTags: ['style', 'script', 'textarea', 'option', 'noscript', 'iframe'],
-  });
+  // 1. Remove dangerous elements with their entire inner content
+  const nonTextTags = ['script', 'style', 'iframe', 'textarea', 'option', 'noscript', 'object', 'embed'];
+  for (const tag of nonTextTags) {
+    const re = new RegExp('<' + tag + '\\b[^>]*>[\\s\\S]*?<\\/' + tag + '>', 'gi');
+    str = str.replace(re, '');
+    const selfClosing = new RegExp('<' + tag + '\\b[^>]*\\/?>', 'gi');
+    str = str.replace(selfClosing, '');
+  }
 
-  // Decode HTML entities back to plain text
-  const decoded = decodeHtmlEntities(stripped);
+  // 2. Strip HTML tags without altering HTML entities or plain text
+  // Loop handles nested or interleaved tag attempts
+  let prev;
+  do {
+    prev = str;
+    str = str.replace(/<\/?([a-zA-Z][a-zA-Z0-9:-]*)\b[^>]*>/g, '');
+  } while (str !== prev);
 
-  // Collapse control characters (newlines, tabs, null bytes) and whitespace
-  return decoded.replace(/[\x00-\x1f\x7f-\x9f\s]+/g, ' ').trim();
+  // 3. Collapse control characters (newlines, tabs, null bytes) and whitespace, and trim
+  return str.replace(/[\x00-\x1f\x7f-\x9f\s]+/g, ' ').trim();
 }
-

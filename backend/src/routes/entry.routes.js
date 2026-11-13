@@ -23,11 +23,11 @@ import {
   uploadMiddleware,
   validateUploadedFiles,
 } from '../middleware/upload.js';
-
-const router = Router();
-
-// Enforce authentication across all entry routes
-router.use(requireAuth);
+import {
+  defaultEntryWriteLimiter,
+  defaultMediaUploadLimiter,
+} from '../middleware/rateLimiter.js';
+import { env } from '../config/env.js';
 
 /**
  * Middleware that strictly verifies route parameter is a 24-hex ObjectId.
@@ -63,68 +63,97 @@ function validateQuery(schema) {
   };
 }
 
-// --- Collection-level Endpoints ---
+/**
+ * Creates the entries router with optional custom rate limiters.
+ *
+ * @param {object} [options]
+ * @param {import('express').RequestHandler} [options.writeLimiter] - Per-user write limiter for mutating operations
+ * @param {import('express').RequestHandler} [options.uploadLimiter] - Per-user media upload limiter
+ * @returns {Router}
+ */
+export function createEntryRouter({ writeLimiter, uploadLimiter } = {}) {
+  const router = Router();
 
-// GET /api/entries - List caller's entries
-router.get('/', validateQuery(listEntriesQuerySchema), entryController.listEntries);
+  // Enforce authentication across all entry routes
+  router.use(requireAuth);
 
-// POST /api/entries - Create a new entry
-router.post('/', validate(createEntrySchema), entryController.createEntry);
+  const activeWriteLimiter = writeLimiter || (env.isTest ? (req, res, next) => next() : defaultEntryWriteLimiter);
+  const activeUploadLimiter = uploadLimiter || (env.isTest ? (req, res, next) => next() : defaultMediaUploadLimiter);
 
-// IMPORTANT: Register POST /trash/purge BEFORE any /:id routes.
-// If registered after /:id, Express routing would treat "trash" as an :id parameter
-// and attempt to match GET /:id or PUT /:id instead of this dedicated purge route.
-router.post('/trash/purge', validate(purgeTrashSchema), entryController.purgeTrash);
+  // --- Collection-level Endpoints ---
 
-// --- Individual Entry Endpoints (keyed by :id) ---
+  // GET /api/entries - List caller's entries (Read operation: not subject to write limiter)
+  router.get('/', validateQuery(listEntriesQuerySchema), entryController.listEntries);
 
-// GET /api/entries/:id - Read single entry
-router.get('/:id', validateObjectIdParam('id'), entryController.getEntry);
+  // POST /api/entries - Create a new entry
+  router.post('/', activeWriteLimiter, validate(createEntrySchema), entryController.createEntry);
 
-// PUT /api/entries/:id - Update entry
-router.put(
-  '/:id',
-  validateObjectIdParam('id'),
-  validate(updateEntrySchema),
-  entryController.updateEntry
-);
+  // IMPORTANT: Register POST /trash/purge BEFORE any /:id routes.
+  // If registered after /:id, Express routing would treat "trash" as an :id parameter.
+  router.post('/trash/purge', activeWriteLimiter, validate(purgeTrashSchema), entryController.purgeTrash);
 
-// DELETE /api/entries/:id - Permanent deletion
-router.delete('/:id', validateObjectIdParam('id'), entryController.deleteEntry);
+  // --- Individual Entry Endpoints (keyed by :id) ---
 
-// PATCH /api/entries/:id/trash - Soft-delete entry
-router.patch('/:id/trash', validateObjectIdParam('id'), entryController.trashEntry);
+  // GET /api/entries/:id - Read single entry (Read operation: not subject to write limiter)
+  router.get('/:id', validateObjectIdParam('id'), entryController.getEntry);
 
-// PATCH /api/entries/:id/restore - Restore soft-deleted entry
-router.patch('/:id/restore', validateObjectIdParam('id'), entryController.restoreEntry);
+  // PUT /api/entries/:id - Update entry
+  router.put(
+    '/:id',
+    activeWriteLimiter,
+    validateObjectIdParam('id'),
+    validate(updateEntrySchema),
+    entryController.updateEntry
+  );
 
-// PATCH /api/entries/:id/bookmark - Toggle/set bookmark
-router.patch(
-  '/:id/bookmark',
-  validateObjectIdParam('id'),
-  validate(bookmarkEntrySchema),
-  entryController.setBookmark
-);
+  // DELETE /api/entries/:id - Permanent deletion
+  router.delete('/:id', activeWriteLimiter, validateObjectIdParam('id'), entryController.deleteEntry);
 
-// --- Media Endpoints (Multer + Cloudinary) ---
+  // PATCH /api/entries/:id/trash - Soft-delete entry
+  router.patch('/:id/trash', activeWriteLimiter, validateObjectIdParam('id'), entryController.trashEntry);
 
-// POST /api/entries/:id/media - Upload media attachments (up to 5 files, active entry only)
-router.post(
-  '/:id/media',
-  validateObjectIdParam('id'),
-  loadOwnedActiveEntry,
-  uploadMiddleware,
-  validateUploadedFiles,
-  entryController.addMedia
-);
+  // PATCH /api/entries/:id/restore - Restore soft-deleted entry
+  router.patch('/:id/restore', activeWriteLimiter, validateObjectIdParam('id'), entryController.restoreEntry);
 
-// DELETE /api/entries/:id/media/:mediaId - Remove and destroy media attachment
-router.delete(
-  '/:id/media/:mediaId',
-  validateObjectIdParam('id'),
-  validateObjectIdParam('mediaId'),
-  entryController.removeMedia
-);
+  // PATCH /api/entries/:id/bookmark - Toggle/set bookmark
+  router.patch(
+    '/:id/bookmark',
+    activeWriteLimiter,
+    validateObjectIdParam('id'),
+    validate(bookmarkEntrySchema),
+    entryController.setBookmark
+  );
 
-export default router;
+  // --- Media Endpoints (Multer + Cloudinary) ---
 
+  // POST /api/entries/:id/media - Upload media attachments (up to 5 files, active entry only)
+  // CRITICAL SECURITY ORDER:
+  // 1. validateObjectIdParam: Validates entry ID format
+  // 2. loadOwnedActiveEntry: Verifies entry ownership and active status (rejects 404 before any stream)
+  // 3. activeUploadLimiter: Checks per-user upload rate limit BEFORE Multer so rejected requests write 0 bytes to disk
+  // 4. uploadMiddleware: Streams files into temporary disk directory
+  // 5. validateUploadedFiles: Strict byte-level magic signature and MIME verification
+  // 6. addMedia: Uploads to Cloudinary and persists in MongoDB
+  router.post(
+    '/:id/media',
+    validateObjectIdParam('id'),
+    loadOwnedActiveEntry,
+    activeUploadLimiter,
+    uploadMiddleware,
+    validateUploadedFiles,
+    entryController.addMedia
+  );
+
+  // DELETE /api/entries/:id/media/:mediaId - Remove and destroy media attachment
+  router.delete(
+    '/:id/media/:mediaId',
+    activeWriteLimiter,
+    validateObjectIdParam('id'),
+    validateObjectIdParam('mediaId'),
+    entryController.removeMedia
+  );
+
+  return router;
+}
+
+export default createEntryRouter();

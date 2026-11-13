@@ -230,6 +230,14 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
     }
   }, [fontStyle])
 
+  useEffect(() => {
+    if (titleRef.current) {
+      const fontCss = FONT_FAMILY_MAP[titleFontStyle] || FONT_FAMILY_MAP.journal
+      titleRef.current.style.setProperty('--entry-title-font', fontCss)
+      titleRef.current.style.fontFamily = fontCss
+    }
+  }, [titleFontStyle])
+
   const handleAttach = (kind: MediaKind, files: FileList | null) => {
     if (!files || files.length === 0) return
     const next: PendingFile[] = Array.from(files).map((file) => ({
@@ -595,8 +603,13 @@ export function EntryEditor({ entry, onClose, onSave, onDelete }: Props) {
               }
             }}
             placeholder="Document Title…"
-            style={{ fontFamily: FONT_FAMILY_MAP[titleFontStyle] || FONT_FAMILY_MAP.journal }}
-            className={`w-full bg-transparent text-2xl sm:text-4xl text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 border-b border-transparent focus:border-slate-300 pb-2 ${
+            style={
+              {
+                '--entry-title-font': FONT_FAMILY_MAP[titleFontStyle] || FONT_FAMILY_MAP.journal,
+                fontFamily: FONT_FAMILY_MAP[titleFontStyle] || FONT_FAMILY_MAP.journal
+              } as React.CSSProperties
+            }
+            className={`entry-title-content w-full bg-transparent text-2xl sm:text-4xl text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 border-b border-transparent focus:border-slate-300 pb-2 ${
               isTitleBold ? 'font-black' : 'font-semibold'
             } ${isTitleItalic ? 'italic' : 'not-italic'} ${isTitleUnderline ? 'underline' : 'no-underline'}`}
           />

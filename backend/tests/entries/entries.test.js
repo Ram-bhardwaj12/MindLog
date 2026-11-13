@@ -25,7 +25,7 @@ await mongoose.connect(testMongoUri);
 const { default: app } = await import('../../src/app.js');
 const { User } = await import('../../src/models/User.js');
 const { Entry } = await import('../../src/models/Entry.js');
-import * as mediaCleanupService from '../../src/services/mediaCleanup.service.js';
+const mediaCleanupService = await import('../../src/services/mediaCleanup.service.js');
 
 /**
  * Test helper: Registers a new user and returns a supertest agent
@@ -520,6 +520,42 @@ describe('Journal Entries API Integration Tests', () => {
       // Verify directly in MongoDB document
       const stored = await Entry.findById(res.body.data.entry.id);
       assert.equal(stored.title, 'Tom & Jerry: 5 < 6 > 4 "Quotes" and \'apostrophes\'');
+    });
+
+    it('Part B: preserves literal entities &lt;b&gt; and &amp; across full API lifecycle (create -> list -> update -> list)', async () => {
+      const { agent } = await createAuthenticatedAgent();
+      const literalTitle = '&lt;b&gt; Bold &amp; Literal &lt;/b&gt;';
+
+      // 1. Create entry
+      const createRes = await agent.post('/api/entries').send({
+        title: literalTitle,
+        bodyHtml: '<p>Initial Body</p>',
+      });
+      assert.equal(createRes.status, 201);
+      const entryId = createRes.body.data.entry.id;
+      assert.equal(createRes.body.data.entry.title, literalTitle);
+
+      // 2. List entries after create
+      const listRes1 = await agent.get('/api/entries');
+      assert.equal(listRes1.status, 200);
+      assert.equal(listRes1.body.data.entries[0].title, literalTitle);
+
+      // 3. Update entry (re-saving same title with updated body)
+      const updateRes = await agent.put(`/api/entries/${entryId}`).send({
+        title: literalTitle,
+        bodyHtml: '<p>Updated Body</p>',
+      });
+      assert.equal(updateRes.status, 200);
+      assert.equal(updateRes.body.data.entry.title, literalTitle);
+
+      // 4. List entries after update: confirm title never mutated to <b> or stripped
+      const listRes2 = await agent.get('/api/entries');
+      assert.equal(listRes2.status, 200);
+      assert.equal(listRes2.body.data.entries[0].title, literalTitle);
+
+      // 5. Verify direct DB persistence
+      const dbDoc = await Entry.findById(entryId);
+      assert.equal(dbDoc.title, literalTitle);
     });
 
     it('strips <script> and malicious attributes when creating an entry', async () => {
