@@ -116,7 +116,10 @@ export default function Journal() {
       body, #root, #root *, h1, h2, h3, h4, h5, h6, p, span, button, input, select, textarea, label {
         font-family: ${fontCss} !important;
       }
-      .entry-body-content, .entry-body-content * {
+      #root .entry-title-content, #root .entry-title-content * {
+        font-family: var(--entry-title-font, inherit) !important;
+      }
+      #root .entry-body-content, #root .entry-body-content * {
         font-family: var(--entry-body-font, ${fontCss}) !important;
       }
     `

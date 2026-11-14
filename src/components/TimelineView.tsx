@@ -172,9 +172,14 @@ export function TimelineView({
 
                           {/* Title */}
                           <h3
-                            style={{ fontFamily: FONT_FAMILY_MAP[entry.titleFontStyle || 'display'] }}
+                            style={
+                              {
+                                '--entry-title-font': FONT_FAMILY_MAP[entry.titleFontStyle || 'display'],
+                                fontFamily: FONT_FAMILY_MAP[entry.titleFontStyle || 'display']
+                              } as React.CSSProperties
+                            }
                             onClick={() => onOpenEntry(entry)}
-                            className="text-xl sm:text-2xl font-black text-slate-900 transition hover:text-[#007AFF] cursor-pointer tracking-tight"
+                            className="entry-title-content text-xl sm:text-2xl font-black text-slate-900 transition hover:text-[#007AFF] cursor-pointer tracking-tight"
                           >
                             {entry.title}
                           </h3>

@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, Lock, Mail, BookOpen, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { DeskScene } from '../components/DeskScene'
 
 type Mode = 'sign_in' | 'sign_up'
@@ -15,6 +15,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const navigate = useNavigate()
+  const { signIn, signUp, requestPasswordReset } = useAuth()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -24,14 +25,11 @@ export default function Login() {
 
     try {
       if (mode === 'sign_in') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        await signIn(email, password)
         navigate('/')
       } else {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-        setNotice('Check your inbox to confirm your email, then sign in.')
-        setMode('sign_in')
+        await signUp(email, password)
+        navigate('/')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -48,12 +46,14 @@ export default function Login() {
     setError(null)
     setNotice(null)
     setLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/`
-    })
-    setLoading(false)
-    if (error) setError(error.message)
-    else setNotice('Password reset link sent — check your inbox.')
+    try {
+      await requestPasswordReset(email)
+      setNotice('Password reset link sent — check your inbox.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -185,7 +185,7 @@ export default function Login() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    minLength={6}
+                    minLength={8}
                     autoComplete={mode === 'sign_in' ? 'current-password' : 'new-password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
