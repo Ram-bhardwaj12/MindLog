@@ -612,5 +612,72 @@ MindLog implements defense-in-depth security hardening across network, transport
 7. **No Email Verification**:
    - Accounts are active immediately upon registration without email verification flows.
 
+---
+
+## 🚀 Deployment (Render)
+
+This backend is designed to deploy on **Render** as a Node.js Web Service directly from the GitHub repository (`backend/` subfolder).
+
+### ⚙️ Render Service Configuration Settings
+
+| Setting | Value | Notes |
+| :--- | :--- | :--- |
+| **Environment** | `Node` | Runtime environment |
+| **Root Directory** | `backend` | Tells Render to run builds and commands within `backend/` |
+| **Build Command** | `npm ci --omit=dev` | Cleanly installs production dependencies only |
+| **Start Command** | `npm start` | Executes `node src/server.js` |
+| **Node Version** | `>=20.0.0` | Set `NODE_VERSION=20.18.0` in Render environment if prompted |
+| **Health Check Path**| `/api/health` | Unauthenticated, lightweight uptime probe |
+
+---
+
+### 🔑 Production Environment Variables (`backend/src/config/env.js`)
+
+Configure the following environment variables in the Render Dashboard (**Environment** tab):
+
+| Variable Name | Required? | Example / Placeholder | Validation Rules & Production Notes |
+| :--- | :--- | :--- | :--- |
+| `NODE_ENV` | **Required** | `production` | Enforces production security checks, strict origin validation, and error masking. |
+| `PORT` | Auto-set | *(leave unset)* | **Render sets this automatically.** Do not manually configure. Express binds to `process.env.PORT` on all interfaces (`0.0.0.0`). |
+| `MONGODB_URI` | **Required** | `mongodb+srv://app_user:StrongPass123@cluster0.example.mongodb.net/mindlog?retryWrites=true&w=majority` | Production MongoDB Atlas connection string. |
+| `CLIENT_ORIGINS` | **Required** | `https://mind-log-smoky.vercel.app` | **Strict Production Validation:** Must start with `https://`, must not be empty, and **cannot contain `localhost`**. Comma-separate if multiple domains. |
+| `JWT_SECRET` | **Required** | `m9X$kL8!qZ2#vW5^pT7@bN4&rY1*eU3(sC6)dF0_` | **Strict Production Validation:** Minimum 32 characters. Must not match known template placeholders (rejects `your_`, `changeme`, `secret`, or the `.env.example` placeholder). |
+| `JWT_EXPIRES_DAYS`| Optional | `7` | Lifespan of auth tokens and HttpOnly cookies (default: 7 days). |
+| `COOKIE_NAME` | Optional | `mindlog_token` | Cookie key name (default: `mindlog_token`). |
+| `COOKIE_SAMESITE` | Optional | `lax` | **Leave as `lax`.** In production, the Vercel frontend proxies `/api/*` to Render, making requests first-party. `SameSite=Lax` works reliably without third-party cookie blocking. |
+| `BCRYPT_SALT_ROUNDS`| Optional | `12` | Cost factor for password hashing (default: 12). |
+| `CLOUDINARY_CLOUD_NAME` | **Required** | `mindlog-prod` | Cloudinary account cloud name. |
+| `CLOUDINARY_API_KEY` | **Required** | `123456789012345` | Cloudinary API key. |
+| `CLOUDINARY_API_SECRET` | **Required** | `your_production_cloudinary_secret` | Cloudinary API secret. |
+| `TRUST_PROXY_HOPS` | Optional | `2` | Number of reverse proxy hops. With Vercel proxying to Render, set to `2` so Express accurately reads the real client IP from `X-Forwarded-For`. |
+| `MEDIA_TMP_DIR` | Optional | *(leave unset)* | Defaults to OS temp directory (`/tmp/mindlog-uploads`). Temp files are unlinked immediately after upload. |
+| `DNS_SERVERS` | **Forbidden**| *(do NOT set)* | **Must NOT be set in production.** Linux cloud environments (Render) have native SRV DNS support; setting this causes DNS lookup failures. |
+
+---
+
+### 🛡️ Reverse Proxy Trust (`TRUST_PROXY_HOPS`)
+
+In production, client requests pass through two reverse proxies before reaching Express:
+1. **Hop 1 (Vercel Edge Proxy)**: Receives client request and forwards to Render (`X-Forwarded-For: <client_ip>`).
+2. **Hop 2 (Render Load Balancer)**: Receives Vercel request and forwards to the Node container (`X-Forwarded-For: <client_ip>, <vercel_ip>`).
+
+Setting `TRUST_PROXY_HOPS=2` instructs Express to trust 2 hops from the incoming socket, accurately identifying the leftmost IP (`<client_ip>`) for rate limiting and logging. Setting this wrong either allows client IP spoofing or causes all users to share a single rate-limiting bucket. This will be verified live in Phase 9.
+
+---
+
+### ⚠️ Free-Tier Caveats & Operating Considerations
+
+1. **Spin-Down After Inactivity (Cold Starts)**:
+   - Render's free Web Service spins down if it receives no traffic for 15 consecutive minutes.
+   - The first request after a spin-down triggers a container boot, taking approximately 50–60 seconds to resume. The frontend handles this gracefully with loading indicators and defensive timeouts.
+2. **Ephemeral Local Filesystem**:
+   - Render containers have non-persistent local disk storage. Any files saved locally are wiped upon redeploy or restart.
+   - *Compensating Control*: MindLog's media architecture uses temporary disk storage only for short-lived streaming chunks, which are immediately unlinked upon completion. All media assets are permanently hosted on Cloudinary CDN.
+3. **Shared Outbound Dynamic IPs (Atlas Access List)**:
+   - Free-tier Render instances do not have static outbound IP addresses. Outbound requests to MongoDB Atlas originate from a dynamic pool of shared IPs.
+   - *Configuration Requirement*: MongoDB Atlas Network Access must be configured to allow access from anywhere (`0.0.0.0/0`).
+   - *Compensating Controls*: Security relies on strong database authentication: a complex, high-entropy database password, and a dedicated database user scoped strictly to read/write privileges on the `mindlog` database only.
+
+
 
 

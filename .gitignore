@@ -1,6 +1,16 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
+*.tsbuildinfo
+
+# Environment variables
 .env
-.env.local
-.DS_Store
+.env.*
+!.env.example
+
+# Local artifacts & logs
+cookies.txt
 *.log
+.DS_Store
