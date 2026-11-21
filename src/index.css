@@ -54,6 +54,12 @@ body {
   }
 }
 
+/* Disable Edge/IE native password reveal button so it doesn't conflict with custom eye icons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 /* UI Card & Glass Utilities */
 .ios-glass {
   background: #ffffff;

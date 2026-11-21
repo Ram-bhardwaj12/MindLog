@@ -191,7 +191,7 @@ export default function Login() {
                   )}
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -201,18 +201,19 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-2xl border border-slate-300 bg-white pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#007AFF] focus:ring-2 focus:ring-blue-500/20 font-semibold shadow-2xs"
+                    className="w-full rounded-2xl border border-slate-300 bg-white pl-10 pr-11 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#007AFF] focus:ring-2 focus:ring-blue-500/20 font-semibold shadow-2xs"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition cursor-pointer p-1 rounded-lg focus:outline-none"
+                    className="absolute inset-y-0 right-0 z-10 flex items-center pr-3.5 pl-3 text-slate-400 hover:text-slate-700 transition cursor-pointer focus:outline-none !transform-none active:!scale-100"
                     title={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? (
-                      <EyeOff className="w-4 h-4 text-slate-500" />
+                      <EyeOff className="w-4 h-4 text-slate-500 pointer-events-none" />
                     ) : (
-                      <Eye className="w-4 h-4 text-slate-500" />
+                      <Eye className="w-4 h-4 text-slate-500 pointer-events-none" />
                     )}
                   </button>
                 </div>
