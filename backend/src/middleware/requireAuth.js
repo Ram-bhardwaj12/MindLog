@@ -35,6 +35,28 @@ export async function requireAuth(req, res, next) {
       return next(ApiError.unauthorized('Authentication required'));
     }
 
+    /**
+     * Session Invalidation (Phase 7):
+     * If the user changed their password, any session tokens issued prior to that password change
+     * must be invalidated immediately.
+     *
+     * Granularity Note:
+     * JWT `iat` (issued-at) is stored in whole seconds. We compare `payload.iat` with
+     * `Math.floor(user.passwordChangedAt.getTime() / 1000)`. If `payload.iat` is strictly earlier,
+     * the session is rejected with generic 401 and the cookie is cleared.
+     * Tokens issued within the exact same second as the reset remain technically valid.
+     * This 1-second granularity window is standard across JWT implementations and acceptable
+     * because password reset requires a multi-step user flow across distinct network requests,
+     * and the reset endpoint explicitly clears the active auth cookie on completion.
+     */
+    if (user.passwordChangedAt && typeof payload.iat === 'number') {
+      const passwordChangedSeconds = Math.floor(user.passwordChangedAt.getTime() / 1000);
+      if (payload.iat < passwordChangedSeconds) {
+        clearAuthCookie(res);
+        return next(ApiError.unauthorized('Authentication required'));
+      }
+    }
+
     // Attach user document to request context
     req.user = user;
     next();

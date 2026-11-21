@@ -271,14 +271,55 @@ Clears the `mindlog_token` cookie. Always returns 200 (idempotent).
 {
   "success": true,
   "data": {
-    "message": "Logged out successfully"
+    "message": "Logged out"
+  }
+}
+```
+
+#### 5. Forgot Password: `POST /api/auth/forgot-password`
+Initiates the password reset workflow. Always returns an identical 200 response regardless of whether the email address exists in the database.
+
+**Request Body**:
+```json
+{
+  "email": "author@example.com"
+}
+```
+
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "message": "If an account exists for that email, a reset link has been sent."
+  }
+}
+```
+
+#### 6. Reset Password: `POST /api/auth/reset-password`
+Consumes a single-use reset token and sets a new password. Clears any existing authentication cookie on the client and invalidates previous session JWTs.
+
+**Request Body**:
+```json
+{
+  "token": "43_character_base64url_reset_token",
+  "newPassword": "NewSecurePassword123!"
+}
+```
+
+**Response (200 OK)**:
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Password updated. Please sign in."
   }
 }
 ```
 
 ### Documented Trade-offs
-1. **Duplicate Email Conflict (409 CONFLICT)**: Returning a 409 error on registration informs the client that the email is already in use. While this allows email enumeration, it matches standard web application UX (alerting the user to log in instead of create a new account). Login endpoints remain timing-safe and return generic messages.
-2. **Stateless JWT Lifetime vs Revocation**: Without a Redis revocation blocklist, tokens remain valid until expiration (7 days). If a user logs out, their client discards the cookie; however, if a token were stolen, it would remain valid until expiry. Password reset token invalidation will be implemented in Phase 7.
+1. **Duplicate Email Conflict (409 CONFLICT)**: Returning a 409 error on registration informs the client that the email is already in use. While this allows email enumeration, it matches standard web application UX (alerting the user to log in instead of create a new account). Login and forgot-password endpoints remain timing-safe and return generic messages.
+2. **Session Invalidation (Phase 7)**: Password reset updates `user.passwordChangedAt`. Any active session JWTs issued prior to that timestamp (`token.iat < floor(passwordChangedAt / 1000)`) are immediately rejected with 401 UNAUTHORIZED, closing the Phase 3 stateless revocation limitation.
 
 ---
 
@@ -649,6 +690,12 @@ Configure the following environment variables in the Render Dashboard (**Environ
 | `CLOUDINARY_CLOUD_NAME` | **Required** | `mindlog-prod` | Cloudinary account cloud name. |
 | `CLOUDINARY_API_KEY` | **Required** | `123456789012345` | Cloudinary API key. |
 | `CLOUDINARY_API_SECRET` | **Required** | `your_production_cloudinary_secret` | Cloudinary API secret. |
+| `EMAIL_PROVIDER` | **Required** | `brevo` | Must be `brevo` in production (`console` provider is strictly forbidden). |
+| `BREVO_API_KEY` | **Required** | `xkeysib-your_production_brevo_api_key` | Brevo transactional API key (v3). |
+| `EMAIL_FROM_ADDRESS` | **Required** | `noreply@yourdomain.com` | Verified sender address in Brevo account. |
+| `EMAIL_FROM_NAME` | Optional | `MindLog` | Sender display name shown to recipients (default: `MindLog`). |
+| `FRONTEND_URL` | **Required** | `https://mind-log-smoky.vercel.app` | Base URL used to build reset links. Must start with `https://`, no trailing slash, no `localhost`. |
+| `PASSWORD_RESET_TTL_MINUTES` | Optional | `30` | Reset token expiration lifetime in minutes (integer 5–120, default: 30). |
 | `TRUST_PROXY_HOPS` | Optional | `2` | Number of reverse proxy hops. With Vercel proxying to Render, set to `2` so Express accurately reads the real client IP from `X-Forwarded-For`. |
 | `MEDIA_TMP_DIR` | Optional | *(leave unset)* | Defaults to OS temp directory (`/tmp/mindlog-uploads`). Temp files are unlinked immediately after upload. |
 | `DNS_SERVERS` | **Forbidden**| *(do NOT set)* | **Must NOT be set in production.** Linux cloud environments (Render) have native SRV DNS support; setting this causes DNS lookup failures. |
@@ -677,6 +724,131 @@ Setting `TRUST_PROXY_HOPS=2` instructs Express to trust 2 hops from the incoming
    - Free-tier Render instances do not have static outbound IP addresses. Outbound requests to MongoDB Atlas originate from a dynamic pool of shared IPs.
    - *Configuration Requirement*: MongoDB Atlas Network Access must be configured to allow access from anywhere (`0.0.0.0/0`).
    - *Compensating Controls*: Security relies on strong database authentication: a complex, high-entropy database password, and a dedicated database user scoped strictly to read/write privileges on the `mindlog` database only.
+
+---
+
+## 🔑 Password Reset & Email Infrastructure (Phase 7)
+
+MindLog provides an out-of-band password recovery mechanism using single-use, cryptographically secure reset tokens delivered via Brevo (formerly Sendinblue) transactional HTTP API.
+
+### 🔄 End-to-End Workflow
+
+```
+[Client]                      [Backend API]                    [Database / Cache]            [Brevo / Console]
+   |                                |                                   |                            |
+   |--- POST /forgot-password ----->|                                   |                            |
+   |    { email }                   |-- Look up user ------------------>|                            |
+   |                                |   (if user exists)                |                            |
+   |                                |-- Revoke prior tokens ----------->|                            |
+   |                                |-- Store SHA-256 tokenHash ------->| (TTL index 30 mins)        |
+   |<-- 200 OK (neutral message) ---|                                   |                            |
+   |    (sent immediately)          |-- setImmediate background task ---+--------------------------->|
+   |                                |                                                                |-- Dispatches email
+   |                                |                                                                |   (or DEV ONLY log)
+   |                                |                                                                |
+[User clicks reset URL]             |                                                                |
+   |                                |                                                                |
+   |--- POST /reset-password ------>|                                                                |
+   |    { token, newPassword }      |-- Atomic findOneAndDelete ------->|                            |
+   |                                |   (validates hash & expiry)       |                            |
+   |                                |-- Hash new password (bcrypt) ---->|                            |
+   |                                |-- Update passwordChangedAt ------>|                            |
+   |                                |-- Revoke all user tokens -------->|                            |
+   |<-- 200 OK (clears cookie) -----|                                   |                            |
+   |    "Password updated"          |                                   |                            |
+```
+
+### 📡 API Endpoints & Contract Examples
+
+#### 1. Request Password Reset: `POST /api/auth/forgot-password`
+Initiates recovery. To protect against user enumeration, responses are identical in status code, timing, and payload for registered, unregistered, and malformed accounts.
+
+- **Rate Limits**: 5 requests per 15 minutes per IP; 3 requests per 1 hour per email (keyed by SHA-256 of normalized email).
+- **Request Body**:
+  ```json
+  {
+    "email": "author@example.com"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "If an account exists for that email, a reset link has been sent."
+    }
+  }
+  ```
+
+#### 2. Confirm Password Reset: `POST /api/auth/reset-password`
+Validates the token, updates credentials, and invalidates older sessions.
+
+- **Rate Limits**: 10 attempts per 15 minutes per IP.
+- **Request Body**:
+  ```json
+  {
+    "token": "43_character_base64url_cryptographic_token",
+    "newPassword": "MyNewSecurePassword2026!"
+  }
+  ```
+- **Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "Password updated. Please sign in."
+    }
+  }
+  ```
+
+### 🛑 Standard Error Codes
+
+| Error Code | HTTP Status | Meaning / Trigger Condition |
+| :--- | :--- | :--- |
+| `VALIDATION_ERROR` | `400` | Malformed email syntax, password under 8 characters, or password over 72 bytes. |
+| `INVALID_RESET_TOKEN`| `400` | The reset token is malformed, unrecognized, expired, already consumed, or belongs to a deleted account. Message: `"Invalid or expired reset link"`. |
+| `TOO_MANY_REQUESTS` | `429` | Rate limit threshold exceeded (per-IP or per-email). Returns standard envelope with `Retry-After` header. |
+| `UNAUTHORIZED` | `401` | Pre-existing session JWT submitted after password reset (`token.iat < floor(passwordChangedAt / 1000)`). |
+
+### ⚙️ Environment Configuration
+
+| Variable | Default (Dev) | Production Requirement | Purpose |
+| :--- | :--- | :--- | :--- |
+| `EMAIL_PROVIDER` | `console` | `brevo` (**Required**) | Provider engine (`console` prints to terminal; `brevo` calls HTTP API). |
+| `BREVO_API_KEY` | *(unset)* | `xkeysib-...` (**Required**) | Brevo v3 REST API key. |
+| `EMAIL_FROM_ADDRESS` | *(unset)* | `noreply@yourdomain.com` (**Required**) | Verified sender address in your Brevo account. |
+| `EMAIL_FROM_NAME` | `MindLog` | `MindLog` | Display name of the sender. |
+| `FRONTEND_URL` | `http://localhost:5173`| `https://mind-log-smoky.vercel.app` (**Required**) | Public frontend URL used to build `${FRONTEND_URL}/reset-password?token=...`. |
+| `PASSWORD_RESET_TTL_MINUTES` | `30` | `30` (5–120) | Token lifetime in minutes before MongoDB TTL purge. |
+
+### ✉️ Brevo Setup Walkthrough
+
+1. **Sign Up**: Create a free account at [brevo.com](https://www.brevo.com).
+2. **Generate API Key**: Navigate to **Profile** -> **SMTP & API** -> **API Keys** -> click **Generate a new API key**. Label it `mindlog-backend` and copy the `xkeysib-...` token.
+3. **Configure Senders**: Under **Senders, Domains & Dedicated IPs** -> **Senders**, click **Add a sender**. Enter your name (e.g. `MindLog`) and email address (e.g. `noreply@yourdomain.com` or your personal email for testing).
+4. **Verify Email**: Brevo will send a verification link to that address. Click the confirmation link.
+5. **Add to Render Environment**: Set `EMAIL_PROVIDER=brevo`, `BREVO_API_KEY`, and `EMAIL_FROM_ADDRESS` in Render.
+
+### ⚠️ Honest Limitations & Operational Trade-offs
+
+1. **Deliverability without Authenticated Domain (DKIM/SPF)**:
+   - When using Brevo without configuring custom DNS records (SPF, DKIM, and DMARC) on your own custom domain, Brevo sends via shared relay servers.
+   - As a result, email providers (Gmail, Outlook) may show a "via sendinblue.com" notice and automated transactional reset emails may be routed to the recipient's **Spam/Junk** folder.
+2. **Token Travels in URL**:
+   - The reset token is delivered as a URL query parameter (`?token=...`).
+   - *Compensating Controls*: The frontend (`ResetPassword.tsx`) immediately scrubs `?token=` from the address bar on mount using `window.history.replaceState` so the secret does not remain in browser history or leak through `Referer` headers on outbound navigation. Tokens expire after 30 minutes and are single-use.
+3. **One-Second Session Invalidation Granularity**:
+   - JWT timestamps (`iat`) are stored as whole integer seconds. Invalidation checks `token.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)`.
+   - A token generated in the exact same wall-clock second as the password change would remain valid. In practice, this is completely negligible because password reset requires multiple HTTP round-trips.
+4. **In-Memory Rate Limit Store**:
+   - Rate limiters use an in-memory sliding window bucket.
+   - When the backend restarts or wakes from Render free-tier sleep, rate limit counters reset.
+5. **Background Email Dispatch**:
+   - For performance and user-enumeration defense, the email dispatch executes in a background microtask (`setImmediate`) after the HTTP 200 response is flushed to the client.
+   - If the container crashes or is abruptly killed immediately after sending the response, the reset email may fail to dispatch. The user can simply request another link.
+6. **Brevo Free Plan Quota**:
+   - The Brevo free tier permits up to **300 emails per day**. Exceeding this quota results in 4xx/402 responses from Brevo; the backend logs a generic warning without crashing.
+
 
 
 

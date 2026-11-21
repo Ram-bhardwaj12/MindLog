@@ -1,5 +1,5 @@
-import { FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { FormEvent, useEffect, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, Lock, Mail, BookOpen, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { DeskScene } from '../components/DeskScene'
@@ -7,15 +7,26 @@ import { DeskScene } from '../components/DeskScene'
 type Mode = 'sign_in' | 'sign_up'
 
 export default function Login() {
+  const location = useLocation()
   const [mode, setMode] = useState<Mode>('sign_in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(
+    () => (location.state as { notice?: string } | null)?.notice || null
+  )
   const navigate = useNavigate()
   const { signIn, signUp, requestPasswordReset } = useAuth()
+
+  useEffect(() => {
+    const stateNotice = (location.state as { notice?: string } | null)?.notice
+    if (stateNotice) {
+      setNotice(stateNotice)
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -48,7 +59,7 @@ export default function Login() {
     setLoading(true)
     try {
       await requestPasswordReset(email)
-      setNotice('Password reset link sent — check your inbox.')
+      setNotice('If an account exists for that email, a reset link has been sent.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {

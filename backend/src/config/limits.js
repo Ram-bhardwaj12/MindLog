@@ -37,3 +37,20 @@ export const ENTRY_WRITE_LIMIT_MAX = 200; // 200 write operations per 15 minutes
 export const MEDIA_UPLOAD_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 export const MEDIA_UPLOAD_LIMIT_MAX = 30; // 30 upload requests per hour per user
 
+// 6. Forgot-Password Rate Limiter (Per IP, Phase 7)
+// Applied to POST /api/auth/forgot-password to throttle reset request volume from a single IP.
+export const FORGOT_PASSWORD_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+export const FORGOT_PASSWORD_LIMIT_MAX = 5; // 5 requests per 15 minutes per IP
+
+// 7. Per-Email Forgot-Password Rate Limiter (Mailbox Abuse Defense, Phase 7)
+// Applied to POST /api/auth/forgot-password after validation, keyed by SHA-256 hash of normalized email.
+// Prevents spamming a specific target inbox across rotating IPs. Responds identically for known/unknown emails.
+export const FORGOT_PASSWORD_EMAIL_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+export const FORGOT_PASSWORD_EMAIL_LIMIT_MAX = 3; // 3 requests per hour per email
+
+// 8. Reset-Password Rate Limiter (Per IP, Phase 7)
+// Applied to POST /api/auth/reset-password to throttle token submission attempts from a single IP.
+export const RESET_PASSWORD_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+export const RESET_PASSWORD_LIMIT_MAX = 10; // 10 requests per 15 minutes per IP
+
+

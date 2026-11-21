@@ -22,6 +22,10 @@ const UserSchema = new mongoose.Schema(
       required: [true, 'Password hash is required'],
       select: false, // Omitted by default from query results
     },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -29,8 +33,9 @@ const UserSchema = new mongoose.Schema(
       transform: (doc, ret) => {
         baseJsonTransform(doc, ret);
 
-        // Ensure sensitive credentials are never exposed in JSON output
+        // Ensure sensitive credentials and security timestamps are never exposed in JSON output
         delete ret.passwordHash;
+        delete ret.passwordChangedAt;
 
         if (ret.createdAt instanceof Date) {
           ret.createdAt = ret.createdAt.toISOString();
