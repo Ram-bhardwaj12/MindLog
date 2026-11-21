@@ -33,7 +33,7 @@ MindLog features a decoupled, production-grade architecture: a reactive **React 
 2. **Rich Entry Editor & Customization**:
    - Rich creation/editing modal for drafting titles, rich body text, mood tracking, and attachments.
    - Formatting support: bold, italic, underline, text alignment (left, center, right, justify), and bulleted/numbered lists.
-   - Real-time **Title Font** and **Body Font** customization across 12 typography options (including *Lora*, *Fraunces*, *Caveat*, *Comic Sans MS*, *Garamond*, and *SF Pro*), with custom font-size and line-height controls.
+   - Real-time **Title Font** and **Body Font** customization across 16 typography options (including *Lora*, *Fraunces*, *Caveat*, *Comic Sans MS*, *Garamond*, and *SF Pro*), with custom font-size and line-height controls.
    - HTML sanitization using `sanitize-html` to prevent stored XSS, and tag-stripping title normalization that preserves plain entities (`&`, `"`, `<`, `>`) with guaranteed idempotence.
 
 3. **Multi-Format Multimedia Attachments**:
@@ -104,7 +104,7 @@ In production, the frontend on Vercel rewrites `/api/*` requests directly to the
 - **Media CDN & Storage**: Cloudinary SDK + Multer (streamed with UUID isolation)
 - **Input Validation**: Zod 3
 - **Security Middleware**: Helmet 8, CORS with origin allow-list, Cookie-Parser, express-rate-limit 8, sanitize-html
-- **Automated Testing**: Node.js native test runner (`node --test`), `mongodb-memory-server`, `supertest` (**178 automated tests, 57 suites, 0 failures**)
+- **Automated Testing**: Node.js native test runner (`node --test`), `mongodb-memory-server`, `supertest` (**208 automated tests, 65 suites, 0 failures**)
 
 ---
 
@@ -152,7 +152,7 @@ cd MindLog
    ```
    *(Server starts with live watcher on `http://localhost:5000`; health check available at `http://localhost:5000/api/health`)*
 
-5. Run automated tests (178 tests):
+5. Run automated tests (208 tests):
    ```bash
    npm test
    ```
@@ -243,7 +243,7 @@ MindLog implements multiple defense-in-depth protections:
 1. **Free-Tier Cold Starts**: On Render's free tier, backend instances spin down after 15 minutes of inactivity. The first request after idle can experience a ~50-second wake-up delay.
 2. **In-Memory Rate Limiting**: Rate limit buckets are stored in process memory. Counters reset upon server restart or redeployment, and are per-instance (requires Redis if scaled horizontally).
 3. **Public Unguessable Media URLs**: Uploaded assets in Cloudinary use unguessable random UUIDs in folder hierarchies (`mindlog/{userId}/{entryId}/<uuid>`). Anyone with the exact URL can view the asset without authentication.
-4. **Password Reset Flow**: Email verification and self-service password reset workflows are not implemented yet.
+4. **Password Reset**: Password reset is implemented with Brevo transactional email. Without an authenticated sending domain, reset emails may land in the spam folder.
 5. **No Per-User Storage Quota**: Aggregate media disk storage per user account is not currently capped at the application layer.
 
 ---
@@ -268,18 +268,19 @@ MindLog/
 │   │   │   ├── rejectOperatorKeys.js  # Recursive NoSQL injection scanner
 │   │   │   ├── requireAuth.js         # JWT verification & caller authentication
 │   │   │   └── upload.js              # Multer configuration & magic-byte inspection
-│   │   ├── models/                    # Mongoose schemas (User, Entry with embedded Media)
+│   │   ├── models/                    # Mongoose schemas (User, Entry, PasswordResetToken)
 │   │   ├── routes/                    # API route definitions (/auth, /entries, /health)
-│   │   ├── services/                  # Business logic (auth, entry, media, cloudinary)
+│   │   ├── services/                  # Business logic (auth, entry, media, cloudinary, email)
 │   │   ├── utils/                     # Token, cookie, objectId, and sanitize helpers
 │   │   ├── validators/                # Zod request payload schemas
 │   │   ├── app.js                     # Express app setup and middleware pipeline
 │   │   └── server.js                  # HTTP server entrypoint with keep-alive timeouts
-│   └── tests/                         # 178 automated tests (Node test runner + Supertest)
+│   └── tests/                         # 208 automated tests (Node test runner + Supertest)
 │       ├── auth/                      # Authentication & cookie tests
 │       ├── entries/                   # Entry CRUD, trash, and sanitize tests
 │       ├── media/                     # Upload, rollback, and magic-byte tests
 │       ├── models/                    # Schema validation unit tests
+│       ├── passwordReset/             # Password reset, Brevo email, & session invalidation tests
 │       └── security/                  # Rate limiter, proxy trust, NoSQL & HTTP hardening
 ├── src/                               # React + TypeScript + Vite Frontend
 │   ├── components/                    # UI Components
@@ -297,7 +298,8 @@ MindLog/
 │   │   └── entries.ts                 # Entry orchestration, upload chunking & date normalization
 │   ├── pages/
 │   │   ├── Journal.tsx                # Main application dashboard
-│   │   └── Login.tsx                  # Login and account registration
+│   │   ├── Login.tsx                  # Login and account registration
+│   │   └── ResetPassword.tsx          # Password reset with token consumption
 │   ├── types.ts                       # Shared TypeScript interfaces
 │   ├── App.tsx                        # Router configuration
 │   ├── index.css                      # Tailwind styling & typography cascade rules
