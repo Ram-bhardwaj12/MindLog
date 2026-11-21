@@ -138,12 +138,8 @@ export async function resetPassword({ token, newPassword }) {
   const tokenHash = hashResetToken(token);
   const now = new Date();
 
-  // Atomically find and consume token (must not be expired)
-  const resetDoc = await PasswordResetToken.findOneAndDelete({
-    tokenHash,
-    expiresAt: { $gt: now },
-  });
-  // Wrapped in mongoose.trusted() because mongoose.set('sanitizeFilter', true) is enabled globally
+  // Atomically find and consume token (must not be expired).
+  // Wrapped in mongoose.trusted() because mongoose.set('sanitizeFilter', true) is enabled globally.
   const resetDoc = await PasswordResetToken.findOneAndDelete(
     mongoose.trusted({
       tokenHash,
