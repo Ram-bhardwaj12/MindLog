@@ -1,7 +1,15 @@
 import bcrypt from 'bcrypt';
+import mongoose from 'mongoose';
 import { User } from '../models/User.js';
+import { PasswordResetToken } from '../models/PasswordResetToken.js';
 import { ApiError } from '../utils/ApiError.js';
 import { env } from '../config/env.js';
+import {
+  generateResetToken,
+  hashResetToken,
+  isValidResetTokenFormat,
+} from '../utils/resetToken.js';
+import { emailClient } from './email/index.js';
 
 // Precomputed dummy bcrypt hash (cost 12) used to mitigate user-enumeration timing attacks.
 // If an email does not exist, we still run bcrypt.compare against this dummy hash so
@@ -66,4 +74,101 @@ export async function loginUser({ email, password }) {
 
   return user;
 }
+
+/**
+ * Initiates the password reset workflow.
+ * Always responds neutrally to protect against user enumeration.
+ * If the user exists, previous reset tokens are revoked, a new one is created,
+ * and the reset email is dispatched asynchronously.
+ *
+ * @param {object} params
+ * @param {string} params.email
+ */
+export async function requestPasswordReset({ email }) {
+  const user = await User.findOne({ email });
+
+  // If user does not exist, return silently without disclosing account absence
+  if (!user) {
+    return;
+  }
+
+  // Revoke any existing reset tokens for this user
+  await PasswordResetToken.deleteMany({ userId: user._id });
+
+  // Generate cryptographically secure token and store SHA-256 hash
+  const { token, tokenHash } = generateResetToken();
+  const expiresAt = new Date(Date.now() + env.passwordResetTtlMinutes * 60 * 1000);
+
+  await PasswordResetToken.create({
+    userId: user._id,
+    tokenHash,
+    expiresAt,
+  });
+
+  const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${token}`;
+
+  // Dispatch email in the background after the response lifecycle has completed
+  setImmediate(async () => {
+    try {
+      await emailClient.sendPasswordResetEmail({
+        to: user.email,
+        resetUrl,
+        expiresMinutes: env.passwordResetTtlMinutes,
+      });
+    } catch {
+      console.warn('[Email Warning] Failed to dispatch password reset email');
+    }
+  });
+}
+
+/**
+ * Resets user password using a single-use token.
+ * Uses atomic findOneAndDelete to prevent concurrent token reuse.
+ *
+ * @param {object} params
+ * @param {string} params.token
+ * @param {string} params.newPassword
+ */
+export async function resetPassword({ token, newPassword }) {
+  // Validate token syntax format before querying database
+  if (!isValidResetTokenFormat(token)) {
+    throw ApiError.invalidResetToken();
+  }
+
+  const tokenHash = hashResetToken(token);
+  const now = new Date();
+
+  // Atomically find and consume token (must not be expired)
+  const resetDoc = await PasswordResetToken.findOneAndDelete({
+    tokenHash,
+    expiresAt: { $gt: now },
+  });
+  // Wrapped in mongoose.trusted() because mongoose.set('sanitizeFilter', true) is enabled globally
+  const resetDoc = await PasswordResetToken.findOneAndDelete(
+    mongoose.trusted({
+      tokenHash,
+      expiresAt: { $gt: now },
+    })
+  );
+
+  if (!resetDoc) {
+    throw ApiError.invalidResetToken();
+  }
+
+  const user = await User.findById(resetDoc.userId);
+  if (!user) {
+    throw ApiError.invalidResetToken();
+  }
+
+  // Hash new password using configured bcrypt salt rounds
+  const passwordHash = await bcrypt.hash(newPassword, env.BCRYPT_SALT_ROUNDS);
+
+  user.passwordHash = passwordHash;
+  user.passwordChangedAt = now;
+  await user.save();
+
+  // Revoke all remaining reset tokens for this user
+  await PasswordResetToken.deleteMany({ userId: user._id });
+}
+
 

@@ -76,6 +76,19 @@ export const envSchema = z
     CLOUDINARY_API_KEY: z.string().optional(),
     CLOUDINARY_API_SECRET: z.string().optional(),
     MEDIA_TMP_DIR: z.string().optional(),
+
+    // --- Email & Password Reset (Phase 7) ---
+    EMAIL_PROVIDER: z.enum(['console', 'brevo']).default('console'),
+    BREVO_API_KEY: z.string().optional(),
+    EMAIL_FROM_ADDRESS: z.string().optional(),
+    EMAIL_FROM_NAME: z.string().trim().min(1).default('MindLog'),
+    FRONTEND_URL: z.string().optional(),
+    PASSWORD_RESET_TTL_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(5, 'PASSWORD_RESET_TTL_MINUTES must be between 5 and 120')
+      .max(120, 'PASSWORD_RESET_TTL_MINUTES must be between 5 and 120')
+      .default(30),
   })
   .superRefine((data, ctx) => {
     // MONGODB_URI is required when running the server, but omitted during automated tests
@@ -149,10 +162,85 @@ export const envSchema = z
           });
         }
       }
+
+      // 3. Email provider must be 'brevo' in production (console provider is forbidden)
+      if (data.EMAIL_PROVIDER !== 'brevo') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['EMAIL_PROVIDER'],
+          message: 'EMAIL_PROVIDER must be "brevo" in production',
+        });
+      }
+
+      // 4. FRONTEND_URL is required in production, must start with https://, must not contain localhost, and no trailing slash
+      if (!data.FRONTEND_URL || data.FRONTEND_URL.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['FRONTEND_URL'],
+          message: 'FRONTEND_URL is required in production',
+        });
+      } else {
+        const url = data.FRONTEND_URL.trim();
+        if (!url.startsWith('https://')) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['FRONTEND_URL'],
+            message: 'FRONTEND_URL must start with https:// in production',
+          });
+        }
+        if (url.toLowerCase().includes('localhost')) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['FRONTEND_URL'],
+            message: 'FRONTEND_URL must not contain localhost in production',
+          });
+        }
+        if (url.endsWith('/')) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['FRONTEND_URL'],
+            message: 'FRONTEND_URL must not contain a trailing slash',
+          });
+        }
+      }
     } else {
       // Non-production default for CLIENT_ORIGINS if omitted
       if (!data.CLIENT_ORIGINS || data.CLIENT_ORIGINS.trim() === '') {
         data.CLIENT_ORIGINS = 'http://localhost:5173';
+      }
+
+      // Non-production default for FRONTEND_URL if omitted
+      if (!data.FRONTEND_URL || data.FRONTEND_URL.trim() === '') {
+        data.FRONTEND_URL = 'http://localhost:5173';
+      } else if (data.FRONTEND_URL.endsWith('/')) {
+        data.FRONTEND_URL = data.FRONTEND_URL.replace(/\/+$/, '');
+      }
+    }
+
+    // When EMAIL_PROVIDER is 'brevo', BREVO_API_KEY and EMAIL_FROM_ADDRESS are required
+    if (data.EMAIL_PROVIDER === 'brevo') {
+      if (!data.BREVO_API_KEY || data.BREVO_API_KEY.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['BREVO_API_KEY'],
+          message: 'BREVO_API_KEY is required when EMAIL_PROVIDER is brevo',
+        });
+      }
+      if (!data.EMAIL_FROM_ADDRESS || data.EMAIL_FROM_ADDRESS.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['EMAIL_FROM_ADDRESS'],
+          message: 'EMAIL_FROM_ADDRESS is required when EMAIL_PROVIDER is brevo',
+        });
+      } else {
+        const emailParsed = z.string().email().safeParse(data.EMAIL_FROM_ADDRESS.trim());
+        if (!emailParsed.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['EMAIL_FROM_ADDRESS'],
+            message: 'EMAIL_FROM_ADDRESS must be a valid email address',
+          });
+        }
       }
     }
 
@@ -254,6 +342,15 @@ export function validateEnv(input = process.env, exitOnError = true) {
     jwtExpiresInSeconds,
     isCookieSecure,
     clientOrigins,
+    EMAIL_PROVIDER: data.EMAIL_PROVIDER,
+    emailProvider: data.EMAIL_PROVIDER,
+    BREVO_API_KEY: data.BREVO_API_KEY,
+    EMAIL_FROM_ADDRESS: data.EMAIL_FROM_ADDRESS,
+    EMAIL_FROM_NAME: data.EMAIL_FROM_NAME,
+    FRONTEND_URL: data.FRONTEND_URL,
+    frontendUrl: data.FRONTEND_URL,
+    PASSWORD_RESET_TTL_MINUTES: data.PASSWORD_RESET_TTL_MINUTES,
+    passwordResetTtlMinutes: data.PASSWORD_RESET_TTL_MINUTES,
     isProduction: data.NODE_ENV === 'production',
     isTest: data.NODE_ENV === 'test',
   };

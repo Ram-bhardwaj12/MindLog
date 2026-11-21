@@ -11,6 +11,12 @@ import {
   ENTRY_WRITE_LIMIT_MAX,
   MEDIA_UPLOAD_LIMIT_WINDOW_MS,
   MEDIA_UPLOAD_LIMIT_MAX,
+  FORGOT_PASSWORD_LIMIT_WINDOW_MS,
+  FORGOT_PASSWORD_LIMIT_MAX,
+  FORGOT_PASSWORD_EMAIL_LIMIT_WINDOW_MS,
+  FORGOT_PASSWORD_EMAIL_LIMIT_MAX,
+  RESET_PASSWORD_LIMIT_WINDOW_MS,
+  RESET_PASSWORD_LIMIT_MAX,
 } from '../config/limits.js';
 
 /**
@@ -159,3 +165,77 @@ export const defaultAuthLimiter = createAuthRateLimiter();
 export const defaultEmailLoginLimiter = createEmailLoginLimiter();
 export const defaultEntryWriteLimiter = createEntryWriteLimiter();
 export const defaultMediaUploadLimiter = createMediaUploadLimiter();
+
+/**
+ * Forgot-Password Rate Limiter Factory (Per IP, Phase 7).
+ * Applied to POST /api/auth/forgot-password.
+ * Keyed by client IP (normalized using ipKeyGenerator).
+ */
+export function createForgotPasswordRateLimiter({
+  windowMs = FORGOT_PASSWORD_LIMIT_WINDOW_MS,
+  max = FORGOT_PASSWORD_LIMIT_MAX,
+  message = 'Too many password reset requests from this IP, please try again after 15 minutes',
+} = {}) {
+  return rateLimit({
+    windowMs,
+    max,
+    message,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || '127.0.0.1'),
+    handler: createRateLimitHandler(message, windowMs),
+  });
+}
+
+/**
+ * Per-Email Forgot-Password Rate Limiter Factory (Mailbox Abuse Defense, Phase 7).
+ * Applied to POST /api/auth/forgot-password AFTER request body validation.
+ * Keyed by SHA-256 hash of normalized email address.
+ * Responds identically regardless of whether the email exists in the database.
+ */
+export function createForgotPasswordEmailLimiter({
+  windowMs = FORGOT_PASSWORD_EMAIL_LIMIT_WINDOW_MS,
+  max = FORGOT_PASSWORD_EMAIL_LIMIT_MAX,
+  message = 'Too many password reset requests for this email, please try again later',
+} = {}) {
+  return rateLimit({
+    windowMs,
+    max,
+    message,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const email = typeof req.body?.email === 'string'
+        ? req.body.email.trim().toLowerCase()
+        : '';
+      return crypto.createHash('sha256').update(email).digest('hex');
+    },
+    handler: createRateLimitHandler(message, windowMs),
+  });
+}
+
+/**
+ * Reset-Password Rate Limiter Factory (Per IP, Phase 7).
+ * Applied to POST /api/auth/reset-password.
+ * Keyed by client IP.
+ */
+export function createResetPasswordRateLimiter({
+  windowMs = RESET_PASSWORD_LIMIT_WINDOW_MS,
+  max = RESET_PASSWORD_LIMIT_MAX,
+  message = 'Too many password reset attempts from this IP, please try again after 15 minutes',
+} = {}) {
+  return rateLimit({
+    windowMs,
+    max,
+    message,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || '127.0.0.1'),
+    handler: createRateLimitHandler(message, windowMs),
+  });
+}
+
+export const defaultForgotPasswordLimiter = createForgotPasswordRateLimiter();
+export const defaultForgotPasswordEmailLimiter = createForgotPasswordEmailLimiter();
+export const defaultResetPasswordLimiter = createResetPasswordRateLimiter();
+

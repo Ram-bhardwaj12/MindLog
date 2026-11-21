@@ -13,6 +13,12 @@ describe('Security Hardening: Environment Validation Tests (Phase 8 A4)', () => 
     CLOUDINARY_API_KEY: '1234567890',
     CLOUDINARY_API_SECRET: 'abcdefghijklmnopqrstuvwxyz012345',
     TRUST_PROXY_HOPS: '2',
+    EMAIL_PROVIDER: 'brevo',
+    BREVO_API_KEY: 'xkeysib-test-production-brevo-key-12345',
+    EMAIL_FROM_ADDRESS: 'noreply@mindlog.app',
+    EMAIL_FROM_NAME: 'MindLog',
+    FRONTEND_URL: 'https://mind-log-smoky.vercel.app',
+    PASSWORD_RESET_TTL_MINUTES: '30',
   };
 
   it('passes validation when production configuration is fully valid', () => {
@@ -128,6 +134,94 @@ describe('Security Hardening: Environment Validation Tests (Phase 8 A4)', () => 
     it('rejects negative hops or hops exceeding 5', () => {
       assert.throws(() => validateEnv({ ...baseValidProduction, TRUST_PROXY_HOPS: '-1' }, false));
       assert.throws(() => validateEnv({ ...baseValidProduction, TRUST_PROXY_HOPS: '6' }, false));
+    });
+  });
+
+  describe('Email & Password Reset Production Validation (Phase 7)', () => {
+    it('rejects console email provider in production mode', () => {
+      const invalid = { ...baseValidProduction, EMAIL_PROVIDER: 'console' };
+      assert.throws(
+        () => validateEnv(invalid, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('EMAIL_PROVIDER'));
+          return issue && issue.message.includes('brevo');
+        }
+      );
+    });
+
+    it('rejects missing BREVO_API_KEY when EMAIL_PROVIDER is brevo', () => {
+      const invalid = { ...baseValidProduction, BREVO_API_KEY: '' };
+      assert.throws(
+        () => validateEnv(invalid, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('BREVO_API_KEY'));
+          return issue && issue.message.includes('BREVO_API_KEY is required');
+        }
+      );
+    });
+
+    it('rejects missing or invalid EMAIL_FROM_ADDRESS when EMAIL_PROVIDER is brevo', () => {
+      const missing = { ...baseValidProduction, EMAIL_FROM_ADDRESS: '' };
+      assert.throws(
+        () => validateEnv(missing, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('EMAIL_FROM_ADDRESS'));
+          return issue && issue.message.includes('EMAIL_FROM_ADDRESS is required');
+        }
+      );
+
+      const invalidEmail = { ...baseValidProduction, EMAIL_FROM_ADDRESS: 'not-an-email' };
+      assert.throws(
+        () => validateEnv(invalidEmail, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('EMAIL_FROM_ADDRESS'));
+          return issue && issue.message.includes('valid email address');
+        }
+      );
+    });
+
+    it('rejects missing FRONTEND_URL in production mode', () => {
+      const invalid = { ...baseValidProduction, FRONTEND_URL: '' };
+      assert.throws(
+        () => validateEnv(invalid, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('FRONTEND_URL'));
+          return issue && issue.message.includes('FRONTEND_URL is required');
+        }
+      );
+    });
+
+    it('rejects http:// FRONTEND_URL in production mode', () => {
+      const invalid = { ...baseValidProduction, FRONTEND_URL: 'http://mind-log-smoky.vercel.app' };
+      assert.throws(
+        () => validateEnv(invalid, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('FRONTEND_URL'));
+          return issue && issue.message.includes('https://');
+        }
+      );
+    });
+
+    it('rejects FRONTEND_URL containing localhost in production mode', () => {
+      const invalid = { ...baseValidProduction, FRONTEND_URL: 'https://localhost:5173' };
+      assert.throws(
+        () => validateEnv(invalid, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('FRONTEND_URL'));
+          return issue && issue.message.includes('localhost');
+        }
+      );
+    });
+
+    it('rejects FRONTEND_URL with a trailing slash in production mode', () => {
+      const invalid = { ...baseValidProduction, FRONTEND_URL: 'https://mind-log-smoky.vercel.app/' };
+      assert.throws(
+        () => validateEnv(invalid, false),
+        (err) => {
+          const issue = err.issues.find((i) => i.path.includes('FRONTEND_URL'));
+          return issue && issue.message.includes('trailing slash');
+        }
+      );
     });
   });
 });

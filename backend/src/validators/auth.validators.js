@@ -36,3 +36,33 @@ export const loginSchema = z.object({
     .max(128, 'Password exceeds maximum length'),
 });
 
+/**
+ * Forgot password validation schema (Phase 7)
+ * Enforces email syntax and length matching registration.
+ */
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string({ required_error: 'Email is required' })
+    .trim()
+    .toLowerCase()
+    .email('Please provide a valid email address')
+    .max(254, 'Email cannot exceed 254 characters'),
+});
+
+/**
+ * Reset password validation schema (Phase 7)
+ * Enforces token presence and password policy (min 8 characters, max 72 bytes).
+ */
+export const resetPasswordSchema = z.object({
+  token: z
+    .string({ required_error: 'Token is required' })
+    .min(1, 'Token is required'),
+  newPassword: z
+    .string({ required_error: 'Password is required' })
+    .min(8, 'Password must be at least 8 characters long')
+    .refine((val) => Buffer.byteLength(val, 'utf8') <= 72, {
+      message: 'Password cannot exceed 72 bytes',
+    }),
+});
+
+

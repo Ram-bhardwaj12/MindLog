@@ -133,7 +133,9 @@ export async function request<T>(path: string, options?: RequestOptions): Promis
   const isAuthExempt =
     normalizedPath === '/auth/login' ||
     normalizedPath === '/auth/register' ||
-    normalizedPath === '/auth/me'
+    normalizedPath === '/auth/me' ||
+    normalizedPath === '/auth/forgot-password' ||
+    normalizedPath === '/auth/reset-password'
 
   if (response.status === 401 && !isAuthExempt) {
     if (unauthorizedHandler && !isHandlingUnauthorized) {
@@ -207,6 +209,12 @@ export const authApi = {
     return request<{ message: string }>('/auth/forgot-password', {
       method: 'POST',
       body: { email }
+    })
+  },
+  resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    return request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: { token, newPassword }
     })
   }
 }

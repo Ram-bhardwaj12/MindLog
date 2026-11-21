@@ -43,6 +43,10 @@ export class ApiError extends Error {
     return new ApiError(409, 'CONFLICT', message, details);
   }
 
+  static invalidResetToken(message = 'Invalid or expired reset link', details = []) {
+    return new ApiError(400, 'INVALID_RESET_TOKEN', message, details);
+  }
+
   static payloadTooLarge(message = 'Payload exceeds maximum allowed size', details = []) {
     return new ApiError(413, 'PAYLOAD_TOO_LARGE', message, details);
   }
